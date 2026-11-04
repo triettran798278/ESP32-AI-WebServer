@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title Thu am va Test XiaoZhi AI Pipeline
+title XiaoZhi Real-Time Voice Assistant (Ranh Tay + Streaming)
 
-echo ==========================================================
-echo    KHOI DONG THU AM LAPTOP DE TEST HE THONG XIAOZHI AI
-echo ==========================================================
+echo ====================================================================
+echo    KHOI DONG TRO LY GIONG NOI REAL-TIME XIAOZHI (RANH TAY 100%%)
+echo ====================================================================
 echo.
 
 where py >nul 2>&1
