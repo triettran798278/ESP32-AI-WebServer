@@ -1,0 +1,43 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+tmp/
+.pytest_cache/
+
+# Virtual environments
+.env
+.venv/
+venv/
+ENV/
+
+# Large AI Model checkpoints (Downloaded automatically via init_models.bat / init_models.sh)
+piper-models/
+whisper-models/
+*.onnx
+*.onnx.json
+*.bin
+*.pt
+*.safetensors
+*.blobs/
+
+# Audio test outputs
+*.wav
+*.mp3
+*.flac
+output_test.wav
+test.wav
+
+# Zip archives & distribution packages
+*.zip
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+.gemini/
+.agents/
+openspec/

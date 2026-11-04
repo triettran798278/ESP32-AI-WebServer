@@ -1,0 +1,75 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_FLASH_ATTENTION=1
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  faster-whisper:
+    build:
+      context: ./faster-whisper
+      dockerfile: Dockerfile.cpu
+    container_name: faster-whisper
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - WHISPER_MODEL=small
+      - WHISPER_COMPUTE_TYPE=int8
+      - WHISPER_DEVICE=cpu
+      - WHISPER_CPU_THREADS=4
+      - WHISPER_LANGUAGE=vi
+      - WHISPER_VAD_FILTER=true
+      - WHISPER_MODEL_DIR=/models
+    volumes:
+      - ./whisper-models:/models
+
+  piper-tts:
+    build:
+      context: ./piper/src/python_run
+      dockerfile: Dockerfile
+    container_name: piper-tts
+    restart: unless-stopped
+    ports:
+      - "10200:10200"
+    environment:
+      - PIPER_MODEL_DIR=/models
+      - PIPER_DEFAULT_VOICE=vi_VN-vais1000-medium
+      - PIPER_INTRA_THREADS=4
+    volumes:
+      - ./piper-models:/models
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - API_KEY=sk-xiaozhi-local-secret
+      - WHISPER_URL=http://faster-whisper:8000
+      - PIPER_URL=http://piper-tts:10200
+      - OLLAMA_URL=http://ollama:11434
+    depends_on:
+      - ollama
+      - faster-whisper
+      - piper-tts
+
+volumes:
+  ollama-data:

@@ -1,0 +1,37 @@
+selected_module:
+  ASR: OpenAIASR
+  LLM: OpenAILLM
+  TTS: OpenAITTS
+
+ASR:
+  OpenAIASR:
+    type: openai
+    # THAY DOI IP_MAY_A THANH IP LAN CUA MAY A (Vi du: http://192.168.1.150:8080/v1)
+    base_url: http://IP_MAY_A:8080/v1
+    api_key: sk-xiaozhi-local-secret
+    model_name: small
+    language: vi
+    output_dir: tmp/
+
+LLM:
+  OpenAILLM:
+    type: openai
+    base_url: http://IP_MAY_A:8080/v1
+    api_key: sk-xiaozhi-local-secret
+    model_name: qwen2.5:3b-instruct
+    temperature: 0.7
+
+TTS:
+  OpenAITTS:
+    type: openai
+    api_url: http://IP_MAY_A:8080/v1/audio/speech
+    api_key: sk-xiaozhi-local-secret
+    model: tts-1
+    voice: vi_VN-vais1000-medium
+    response_format: wav
+    speed: 1.0
+    output_dir: tmp/
+
+server:
+  port: 8000
+  listen: 0.0.0.0

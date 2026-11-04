@@ -1,0 +1,12 @@
+services:
+  xiaozhi-server:
+    image: ghcr.io/xinnan-tech/xiaozhi-esp32-server:latest
+    container_name: xiaozhi-server
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config.yaml:/app/data/.config.yaml:ro
+      - ./tmp:/app/tmp
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
