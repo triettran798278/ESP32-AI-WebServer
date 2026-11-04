@@ -40,6 +40,8 @@ Hệ thống AI Backend **hoàn toàn cục bộ (Full-Local)** phục vụ làm
 02_tts_stt_model/
 ├── docker-compose.yml          # Điều phối 4 container (Ollama, Whisper, Piper, Gateway)
 ├── start_all.bat               # Script 1-Click khởi chạy, tải model và test toàn trình trên Windows
+├── run_mic_test.bat            # Script 1-Click bật trợ lý giọng nói Real-Time rảnh tay trên Laptop
+├── mic_test.py                 # Trợ lý giọng nói Real-Time (Auto VAD + SSE Streaming + Context Memory)
 ├── init_models.bat             # Script tải model tiếng Việt & pull Qwen (Windows)
 ├── init_models.sh              # Script tải model tiếng Việt & pull Qwen (Linux)
 ├── test_pipeline.py            # Script kiểm thử Round-Trip (LLM -> TTS -> STT -> Gateway)
@@ -72,6 +74,9 @@ Hệ thống AI Backend **hoàn toàn cục bộ (Full-Local)** phục vụ làm
    start_all.bat
    ```
 3. Script sẽ tự khởi chạy container, kiểm tra model và in ra địa chỉ IP LAN cùng mẫu config để dán vào XiaoZhi Server.
+4. **Đàm thoại Real-Time trực tiếp trên Laptop (Rảnh tay 100%):**
+   - Nhấp đúp `run_mic_test.bat` hoặc chạy `python mic_test.py` (cần `pip install sounddevice numpy`).
+   - Tự động cân chỉnh độ ồn nền (VAD), nhớ ngữ cảnh đa lượt (`chat_history`), và stream từng câu từ LLM sang TTS giúp phát âm thanh đầu tiên chỉ sau **~0.66 giây**.
 
 ### Trên Linux / macOS:
 ```bash
