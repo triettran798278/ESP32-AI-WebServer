@@ -73,7 +73,14 @@ Toàn bộ hệ thống được container hóa và điều phối qua [`docker-
   5. `get_dht20_environment()`: Đọc nhanh nhiệt độ và độ ẩm từ cảm biến `DHT20`.
   6. `device_control(device_name: str, action: str)`: Điều khiển bật/tắt thiết bị smarthome và đồng bộ Client Attributes lên ThingsBoard qua `COREIOT_DEVICE_TOKEN`.
 
-### B. XiaoZhi Cloud MCP Pipe ([`services/mcp_pipe.py`](file:///services/mcp_pipe.py))
+### B. All-in-One Multi-Agent & CoreIoT Web Console ([`services/console.html`](file:///services/console.html))
+- Truy cập trực tiếp tại **`http://localhost:8080/console`** (hoặc `http://localhost:8080/`).
+- Bao gồm 3 phân khu chính trên cùng 1 trang:
+  1. **Quản lý Đa Agent (Multi-Agent Console)**: Tạo, sửa, xóa nhiều nhân cách Agent (cấu hình riêng System Prompt, Model, Temperature, bật/tắt từng MCP Tool) và chọn Agent mặc định cho mạch XiaoZhi ESP32.
+  2. **CoreIoT / ThingsBoard Live Dashboard & Auto-Discovery**: Tự động quét và hiển thị thẻ số liệu thời gian thực của mọi thiết bị trên `app.coreiot.io` (`DHT20`, `LAB1_2414100`), bảng nút gạt điều khiển đồng bộ Client Attributes và nhúng trực tiếp Dashboard gốc của ThingsBoard qua Iframe.
+  3. **Buồng Thử Nghiệm Giọng Nói & Chat + MCP Tool Inspector**: Tích hợp thu âm giọng nói trên trình duyệt (`Faster-Whisper` STT) -> gọi Agent + MCP Tools -> phát giọng đọc tiếng Việt (`Piper` TTS) kèm nhật ký chi tiết các lệnh gọi hàm MCP và độ trễ từng chặng.
+
+### C. XiaoZhi Cloud MCP Pipe ([`services/mcp_pipe.py`](file:///services/mcp_pipe.py))
 - Cầu nối WebSocket `<->` stdio cho phép gắn toàn bộ cụm MCP Tools của ThingsBoard trực tiếp vào Agent trên trang quản trị đám mây `https://xiaozhi.me/console/agents` thông qua `MCP_ENDPOINT` (`wss://api.xiaozhi.me/mcp/?token=...`).
 - Có thể chạy độc lập (`python services/mcp_pipe.py "wss://..."`) hoặc tự động chạy ngầm trong container `mcp-gateway` khi khai báo biến môi trường `MCP_ENDPOINT`.
 

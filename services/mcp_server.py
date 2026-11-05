@@ -18,6 +18,7 @@ mcp = FastMCP("xiaozhi-thingsboard-tools")
 
 COREIOT_URL = os.getenv("COREIOT_URL", "https://app.coreiot.io").rstrip("/")
 COREIOT_PUBLIC_ID = os.getenv("COREIOT_PUBLIC_ID", "ffd43ad0-776f-11f1-9dee-09c31de14de0")
+COREIOT_DASHBOARD_ID = os.getenv("COREIOT_DASHBOARD_ID", "a14cb550-d8c2-11f1-9298-f795494fee72")
 COREIOT_USERNAME = os.getenv("COREIOT_USERNAME", "").strip()
 COREIOT_PASSWORD = os.getenv("COREIOT_PASSWORD", "").strip()
 COREIOT_DEVICE_TOKEN = os.getenv("COREIOT_DEVICE_TOKEN", "iqYmkU3CuCQoPtxnaxBm").strip()
@@ -35,7 +36,47 @@ _cache: Dict[str, Any] = {
     "token_exp": 0.0,
     "devices": None,
     "devices_exp": 0.0,
+    "controls": {"den_phong_khach": "OFF", "quat_tran": "OFF", "dieu_hoa": "OFF"},
 }
+
+
+def configure_coreiot(
+    url: Optional[str] = None,
+    public_id: Optional[str] = None,
+    dashboard_id: Optional[str] = None,
+    device_token: Optional[str] = None,
+) -> Dict[str, str]:
+    """Update CoreIoT connection parameters at runtime and reset discovery cache."""
+    global COREIOT_URL, COREIOT_PUBLIC_ID, COREIOT_DASHBOARD_ID, COREIOT_DEVICE_TOKEN, _http
+    if url:
+        COREIOT_URL = url.strip().rstrip("/")
+        _http = httpx.Client(base_url=COREIOT_URL, timeout=10.0, headers={"User-Agent": "XiaoZhi-MCP/1.0"})
+    if public_id is not None:
+        COREIOT_PUBLIC_ID = public_id.strip()
+    if dashboard_id is not None:
+        COREIOT_DASHBOARD_ID = dashboard_id.strip()
+    if device_token is not None:
+        COREIOT_DEVICE_TOKEN = device_token.strip()
+    _cache["token"] = None
+    _cache["token_exp"] = 0.0
+    _cache["devices"] = None
+    _cache["devices_exp"] = 0.0
+    return get_coreiot_config()
+
+
+def get_coreiot_config() -> Dict[str, str]:
+    embed_url = (
+        f"{COREIOT_URL}/dashboard/{COREIOT_DASHBOARD_ID}?publicId={COREIOT_PUBLIC_ID}"
+        if COREIOT_DASHBOARD_ID and COREIOT_PUBLIC_ID
+        else COREIOT_URL
+    )
+    return {
+        "url": COREIOT_URL,
+        "public_id": COREIOT_PUBLIC_ID,
+        "dashboard_id": COREIOT_DASHBOARD_ID,
+        "device_token": COREIOT_DEVICE_TOKEN,
+        "embed_url": embed_url,
+    }
 
 METRIC_LABELS = {
     "temperature": ("Nhiệt độ", "°C"),
@@ -197,10 +238,12 @@ def device_control(device_name: str, action: str) -> str:
     act = action.strip().lower()
     is_on = act in ["on", "bat", "bật", "true", "start", "1", "mở"]
     status = "bật" if is_on else "tắt"
+    slug = device_name.strip().lower().replace(" ", "_")
+    _cache["controls"][slug] = "ON" if is_on else "OFF"
 
     if COREIOT_DEVICE_TOKEN:
         try:
-            key_slug = f"control_{device_name.strip().lower().replace(' ', '_')}"
+            key_slug = f"control_{slug}"
             _http.post(
                 f"/api/v1/{COREIOT_DEVICE_TOKEN}/attributes",
                 json={key_slug: "ON" if is_on else "OFF", "last_command": f"{status} {device_name}"},
@@ -209,6 +252,43 @@ def device_control(device_name: str, action: str) -> str:
             pass
 
     return f"Đã thực hiện: {status} thiết bị '{device_name}' và đồng bộ trạng thái lên ThingsBoard thành công."
+
+
+def fetch_iot_dashboard_data(force_refresh: bool = False) -> Dict[str, Any]:
+    """Return structured JSON of all discovered ThingsBoard devices and live telemetry for the Web Console."""
+    devices = _discover_devices(force_refresh=force_refresh)
+    enriched = []
+    for d in devices:
+        telemetry: Dict[str, Any] = {}
+        last_ts = 0
+        if d["keys"]:
+            try:
+                kstr = ",".join(d["keys"])
+                raw = _tb_request(f"/api/plugins/telemetry/DEVICE/{d['id']}/values/timeseries?keys={kstr}")
+                for k in d["keys"]:
+                    entry = (raw.get(k) or [{}])[0]
+                    val = entry.get("value")
+                    ts = entry.get("ts") or 0
+                    if ts > last_ts:
+                        last_ts = ts
+                    label, unit = METRIC_LABELS.get(k, (k, ""))
+                    telemetry[k] = {"value": val, "label": label, "unit": unit, "ts": ts}
+            except Exception:
+                pass
+        enriched.append({
+            "id": d["id"],
+            "name": d["name"],
+            "label": d["label"],
+            "keys": d["keys"],
+            "telemetry": telemetry,
+            "last_ts": last_ts,
+        })
+    return {
+        "config": get_coreiot_config(),
+        "devices": enriched,
+        "controls": _cache["controls"],
+        "updated_at": int(time.time() * 1000),
+    }
 
 
 if __name__ == "__main__":

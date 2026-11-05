@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XiaoZhi x CoreIoT — All-in-One Agent Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; }
+    .card-active { border-color: #38bdf8; box-shadow: 0 0 0 1px #38bdf8; }
+    input, textarea, select { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 0.5rem; padding: 0.5rem 0.75rem; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #38bdf8; }
+  </style>
+</head>
+<body class="min-h-screen pb-12">
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-30 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-slate-950 text-lg">XZ</div>
+        <div>
+          <h1 class="font-bold text-base sm:text-lg leading-tight">XiaoZhi × CoreIoT Console</h1>
+          <p class="text-xs text-slate-400">Quản lý Đa Agent • Tự động đồng bộ ThingsBoard • Voice & MCP Playground</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-xs">
+        <span id="statusBadge" class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">● Đang kết nối...</span>
+        <input id="apiKeyInput" type="password" value="sk-xiaozhi-local-secret" class="w-44 text-xs py-1 px-2" title="Unified Gateway API Key" onchange="loadAll()" />
+        <button onclick="loadAll(true)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 font-medium">Làm mới</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 mt-6 space-y-6">
+    <!-- SECTION 1: MULTI-AGENT MANAGEMENT (xiaozhi.me/console/agents clone) -->
+    <section class="card p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-lg font-bold flex items-center gap-2">🤖 Quản lý Đa Agent (Agents Console)</h2>
+          <p class="text-xs text-slate-400">Tạo nhiều nhân cách Agent với System Prompt và bộ công cụ MCP riêng biệt. Agent mặc định sẽ phục vụ mạch XiaoZhi ESP32.</p>
+        </div>
+        <button onclick="openNewAgentForm()" class="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-sm">+ Tạo Agent mới</button>
+      </div>
+
+      <!-- Agent Cards Grid -->
+      <div id="agentsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+
+      <!-- Collapsible Agent Editor -->
+      <div id="agentEditor" class="hidden mt-5 pt-5 border-t border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <h3 id="editorTitle" class="font-bold text-sky-400 text-sm">Chỉnh sửa Agent</h3>
+          <button onclick="closeAgentEditor()" class="text-xs text-slate-400 hover:text-white">✕ Đóng</button>
+        </div>
+        <input type="hidden" id="editAgentId" />
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Tên Agent</label>
+            <input id="editAgentName" class="w-full" placeholder="VD: Quản Gia Phòng Khách" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Vai trò ngắn</label>
+            <input id="editAgentRole" class="w-full" placeholder="VD: Điều khiển thiết bị & Cảm biến" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Model LLM (Ollama)</label>
+            <input id="editAgentModel" class="w-full" value="qwen2.5:3b-instruct" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Temperature (<span id="tempVal">0.7</span>)</label>
+            <input id="editAgentTemp" type="range" min="0" max="1" step="0.1" value="0.7" class="w-full mt-2" oninput="document.getElementById('tempVal').innerText=this.value" />
+          </div>
+        </div>
+        <div class="mt-3 text-xs">
+          <label class="block text-slate-400 mb-1">System Prompt (Nhân cách & Hướng dẫn hành vi)</label>
+          <textarea id="editAgentPrompt" rows="3" class="w-full"></textarea>
+        </div>
+        <div class="mt-3 text-xs">
+          <label class="block text-slate-400 mb-1.5">Công cụ MCP được phép sử dụng (MCP Tools):</label>
+          <div id="editAgentTools" class="flex flex-wrap gap-2"></div>
+        </div>
+        <div class="mt-4 flex items-center justify-end gap-2">
+          <label class="flex items-center gap-1.5 text-xs text-slate-300 mr-3 cursor-pointer">
+            <input type="checkbox" id="editAgentSetActive" checked /> Đặt làm Agent mặc định cho ESP32
+          </label>
+          <button onclick="closeAgentEditor()" class="px-3 py-1.5 rounded-lg bg-slate-800 text-xs">Hủy</button>
+          <button onclick="saveAgentForm()" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs">Lưu Agent</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: THINGSBOARD / COREIOT AUTO-DISCOVERY & LIVE DASHBOARD -->
+    <section class="card p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-lg font-bold flex items-center gap-2">📡 CoreIoT / ThingsBoard Live Dashboard & Auto-Discovery</h2>
+          <p class="text-xs text-slate-400">Tự động quét toàn bộ thiết bị & cảm biến từ <code class="text-sky-400">app.coreiot.io</code>, đọc số liệu thời gian thực và nhúng Dashboard gốc.</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+            <input type="checkbox" id="autoRefreshToggle" checked onchange="toggleAutoRefresh()" /> Tự cập nhật (5s)
+          </label>
+          <button onclick="toggleCoreiotConfig()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700">⚙️ Cấu hình CoreIoT</button>
+          <button onclick="toggleIframeDashboard()" class="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30">📊 Ẩn/Hiện Dashboard Gốc</button>
+          <button onclick="refreshIot(true)" class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold">🔄 Quét thiết bị</button>
+        </div>
+      </div>
+
+      <!-- CoreIoT Connection Config Bar (Collapsible) -->
+      <div id="coreiotConfigPanel" class="hidden mb-4 p-4 rounded-lg bg-slate-900/90 border border-slate-700 text-xs space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">ThingsBoard Host URL</label>
+            <input id="tbUrl" class="w-full" placeholder="https://app.coreiot.io" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Public Customer ID (publicId)</label>
+            <input id="tbPublicId" class="w-full" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Dashboard ID</label>
+            <input id="tbDashboardId" class="w-full" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Device Access Token</label>
+            <input id="tbDeviceToken" class="w-full" />
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <button onclick="saveCoreiotConfig()" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold">Lưu & Đồng bộ ngay</button>
+        </div>
+      </div>
+
+      <!-- Discovered IoT Devices Live Cards -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <div id="iotDevicesContainer" class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+
+        <!-- Quick Smart Home Controls (Synced to ThingsBoard Client Attributes) -->
+        <div class="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Điều khiển nhanh (ThingsBoard Sync)</span>
+              <span class="text-[11px] text-emerald-400">Client Attributes</span>
+            </div>
+            <div id="iotControlsContainer" class="space-y-2 mt-3"></div>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-3">Khi bấm nút hoặc ra lệnh giọng nói cho Agent, trạng thái sẽ đồng bộ thẳng lên <code class="text-slate-400">app.coreiot.io</code> qua Access Token.</p>
+        </div>
+      </div>
+
+      <!-- Embedded Original ThingsBoard Dashboard Iframe -->
+      <div id="iframeContainer" class="mt-4">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+          <span>🌐 Bảng điều khiển trực tiếp từ <strong class="text-slate-200">app.coreiot.io</strong>:</span>
+          <a id="externalDashboardLink" href="#" target="_blank" class="text-sky-400 hover:underline">Mở trong tab mới ↗</a>
+        </div>
+        <iframe id="tbIframe" src="" class="w-full h-[460px] rounded-xl border border-slate-700 bg-slate-950"></iframe>
+      </div>
+    </section>
+
+    <!-- SECTION 3: VOICE & CHAT PLAYGROUND + MCP TOOL TRACE -->
+    <section class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <!-- Left: Chat & Mic Playground (3 cols) -->
+      <div class="card p-5 lg:col-span-3 flex flex-col h-[520px]">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="font-bold text-base">🎙️ Buồng Thử Nghiệm Giọng Nói & Chat</h2>
+            <p class="text-xs text-slate-400">Test trực tiếp STT (Faster-Whisper) → Agent + MCP → TTS (Piper)</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-slate-400">Agent:</span>
+            <select id="chatAgentSelect" class="py-1 px-2 text-xs font-semibold text-sky-300"></select>
+            <label class="flex items-center gap-1 cursor-pointer ml-1" title="Tự động phát giọng nói tiếng Việt Piper TTS">
+              <input type="checkbox" id="ttsAutoPlay" checked /> 🔊 Đọc TTS
+            </label>
+          </div>
+        </div>
+
+        <!-- Quick Test Chips -->
+        <div class="flex flex-wrap gap-1.5 py-2.5 border-b border-slate-800/80 text-[11px]">
+          <button onclick="sendQuickPrompt('Kiểm tra nhiệt độ và độ ẩm cảm biến DHT20 hiện tại giúp tôi.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-sky-300">🌡️ Đọc cảm biến DHT20</button>
+          <button onclick="sendQuickPrompt('Hãy liệt kê tất cả thiết bị IoT đang có trên hệ thống ThingsBoard của tôi.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-emerald-300">📡 Quét thiết bị ThingsBoard</button>
+          <button onclick="sendQuickPrompt('Đọc số liệu cảm biến của thiết bị LAB1 giúp tôi.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-purple-300">🔬 Đọc cảm biến LAB1</button>
+          <button onclick="sendQuickPrompt('Bật đèn phòng khách giúp tôi nhé.')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-300">💡 Bật đèn phòng khách</button>
+          <button onclick="sendQuickPrompt('Bây giờ là mấy giờ rồi?')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300">🕒 Hỏi giờ</button>
+        </div>
+
+        <!-- Chat Messages -->
+        <div id="chatBox" class="flex-1 overflow-y-auto py-3 space-y-3 text-sm pr-1">
+          <div class="p-3 rounded-xl bg-slate-800/70 text-slate-300 text-xs">
+            👋 Xin chào! Chọn một Agent phía trên, bấm vào các câu gợi ý hoặc nhấn nút <strong>🎙️ Thu âm</strong> để nói chuyện trực tiếp bằng tiếng Việt.
+          </div>
+        </div>
+
+        <!-- Input & Mic Bar -->
+        <div class="pt-3 border-t border-slate-800 flex items-center gap-2">
+          <button id="micBtn" onclick="toggleMicRecording()" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-semibold text-xs flex items-center gap-1.5 shrink-0">
+            <span id="micBtnLabel">🎙️ Thu âm</span>
+          </button>
+          <input id="chatInput" class="flex-1 text-sm" placeholder="Nhập câu hỏi hoặc lệnh điều khiển IoT..." onkeydown="if(event.key==='Enter') sendChat()" />
+          <button onclick="sendChat()" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs shrink-0">Gửi</button>
+        </div>
+      </div>
+
+      <!-- Right: Live MCP Tool Call & Latency Inspector (2 cols) -->
+      <div class="card p-5 lg:col-span-2 flex flex-col h-[520px]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div>
+            <h2 class="font-bold text-base">🛠️ Nhật Ký Gọi MCP Tool & Latency</h2>
+            <p class="text-xs text-slate-400">Theo dõi thời gian thực các lệnh gọi hàm từ Qwen2.5 sang ThingsBoard</p>
+          </div>
+          <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">Real-time</span>
+        </div>
+        <div id="logsContainer" class="flex-1 overflow-y-auto py-3 space-y-2.5 text-xs pr-1"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let state = { active_agent_id: '', agents: [], available_tools: [], coreiot: {}, logs: [] };
+    let refreshTimer = null;
+    let currentIframeUrl = '';
+
+    function apiHeaders(extra = {}) {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      return Object.assign({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }, extra);
+    }
+
+    async function loadAll(forceRefreshIot = false) {
+      try {
+        const res = await fetch('/api/console/state', { headers: apiHeaders() });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        state = await res.json();
+        document.getElementById('statusBadge').className = 'px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        document.getElementById('statusBadge').innerText = `● Online (${state.available_tools.length} MCP Tools)`;
+        renderAgents();
+        renderLogs();
+        populateCoreiotConfig();
+        await refreshIot(forceRefreshIot);
+      } catch (err) {
+        document.getElementById('statusBadge').className = 'px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30';
+        document.getElementById('statusBadge').innerText = '● Lỗi kết nối / Sai API Key';
+      }
+    }
+
+    function renderAgents() {
+      const grid = document.getElementById('agentsGrid');
+      const select = document.getElementById('chatAgentSelect');
+      const prevSelected = select.value || state.active_agent_id;
+      grid.innerHTML = '';
+      select.innerHTML = '';
+
+      state.agents.forEach(a => {
+        const isActive = a.id === state.active_agent_id;
+        const toolsHtml = (a.enabled_tools || []).map(t =>
+          `<span class="px-2 py-0.5 rounded bg-slate-800 text-sky-300 border border-slate-700 text-[11px]">${t}</span>`
+        ).join(' ');
+
+        const div = document.createElement('div');
+        div.className = `card p-4 flex flex-col justify-between transition ${isActive ? 'card-active' : ''}`;
+        div.innerHTML = `
+          <div>
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="font-bold text-sm text-white">${a.name}</h3>
+                <p class="text-xs text-sky-400 mt-0.5">${a.role || ''}</p>
+              </div>
+              ${isActive
+                ? `<span class="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[10px] font-semibold shrink-0">★ Mặc định ESP32</span>`
+                : `<button onclick="activateAgent('${a.id}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] shrink-0">Đặt mặc định</button>`
+              }
+            </div>
+            <p class="text-xs text-slate-400 mt-2.5 line-clamp-2" title="${a.system_prompt}">${a.system_prompt}</p>
+            <div class="flex flex-wrap gap-1 mt-3">${toolsHtml}</div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+            <span class="text-slate-500">${a.model} • T=${a.temperature}</span>
+            <div class="flex items-center gap-2">
+              <button onclick="selectAgentForChat('${a.id}')" class="text-emerald-400 hover:underline">Chat thử</button>
+              <button onclick="openEditAgent('${a.id}')" class="text-sky-400 hover:underline">Sửa</button>
+              ${state.agents.length > 1 ? `<button onclick="deleteAgent('${a.id}')" class="text-rose-400 hover:underline">Xóa</button>` : ''}
+            </div>
+          </div>
+        `;
+        grid.appendChild(div);
+
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.innerText = `${a.name}${isActive ? ' (Mặc định)' : ''}`;
+        select.appendChild(opt);
+      });
+      select.value = prevSelected;
+    }
+
+    function openNewAgentForm() {
+      document.getElementById('agentEditor').classList.remove('hidden');
+      document.getElementById('editorTitle').innerText = '✨ Tạo Agent Mới';
+      document.getElementById('editAgentId').value = '';
+      document.getElementById('editAgentName').value = '';
+      document.getElementById('editAgentRole').value = '';
+      document.getElementById('editAgentModel').value = 'qwen2.5:3b-instruct';
+      document.getElementById('editAgentTemp').value = '0.7';
+      document.getElementById('tempVal').innerText = '0.7';
+      document.getElementById('editAgentPrompt').value = 'Bạn là trợ lý AI thông minh. Trả lời ngắn gọn 1-2 câu bằng tiếng Việt tự nhiên.';
+      renderToolCheckboxes(state.available_tools.map(t => t.function.name));
+    }
+
+    function openEditAgent(agentId) {
+      const a = state.agents.find(x => x.id === agentId);
+      if (!a) return;
+      document.getElementById('agentEditor').classList.remove('hidden');
+      document.getElementById('editorTitle').innerText = `🛠️ Chỉnh sửa Agent: ${a.name}`;
+      document.getElementById('editAgentId').value = a.id;
+      document.getElementById('editAgentName').value = a.name;
+      document.getElementById('editAgentRole').value = a.role || '';
+      document.getElementById('editAgentModel').value = a.model || 'qwen2.5:3b-instruct';
+      document.getElementById('editAgentTemp').value = a.temperature ?? 0.7;
+      document.getElementById('tempVal').innerText = a.temperature ?? 0.7;
+      document.getElementById('editAgentPrompt').value = a.system_prompt || '';
+      document.getElementById('editAgentSetActive').checked = (a.id === state.active_agent_id);
+      renderToolCheckboxes(a.enabled_tools || []);
+    }
+
+    function renderToolCheckboxes(selected) {
+      const container = document.getElementById('editAgentTools');
+      container.innerHTML = '';
+      state.available_tools.forEach(t => {
+        const name = t.function.name;
+        const checked = selected.includes(name) ? 'checked' : '';
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer';
+        label.innerHTML = `<input type="checkbox" value="${name}" class="agent-tool-cb" ${checked} /> <span class="font-mono text-sky-300">${name}</span>`;
+        container.appendChild(label);
+      });
+    }
+
+    function closeAgentEditor() {
+      document.getElementById('agentEditor').classList.add('hidden');
+    }
+
+    async function saveAgentForm() {
+      const enabled_tools = Array.from(document.querySelectorAll('.agent-tool-cb:checked')).map(cb => cb.value);
+      const payload = {
+        id: document.getElementById('editAgentId').value.trim() || undefined,
+        name: document.getElementById('editAgentName').value.trim() || 'Agent Mới',
+        role: document.getElementById('editAgentRole').value.trim(),
+        model: document.getElementById('editAgentModel').value.trim(),
+        temperature: parseFloat(document.getElementById('editAgentTemp').value),
+        system_prompt: document.getElementById('editAgentPrompt').value.trim(),
+        enabled_tools,
+        set_active: document.getElementById('editAgentSetActive').checked,
+      };
+      await fetch('/api/console/agents', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) });
+      closeAgentEditor();
+      await loadAll();
+    }
+
+    async function activateAgent(agentId) {
+      await fetch('/api/console/agents/activate', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ agent_id: agentId }) });
+      await loadAll();
+    }
+
+    async function deleteAgent(agentId) {
+      if (!confirm('Bạn có chắc muốn xóa Agent này?')) return;
+      await fetch(`/api/console/agents/${agentId}`, { method: 'DELETE', headers: apiHeaders() });
+      await loadAll();
+    }
+
+    function selectAgentForChat(agentId) {
+      document.getElementById('chatAgentSelect').value = agentId;
+      document.getElementById('chatInput').focus();
+    }
+
+    function populateCoreiotConfig() {
+      const c = state.coreiot || {};
+      document.getElementById('tbUrl').value = c.url || 'https://app.coreiot.io';
+      document.getElementById('tbPublicId').value = c.public_id || '';
+      document.getElementById('tbDashboardId').value = c.dashboard_id || '';
+      document.getElementById('tbDeviceToken').value = c.device_token || '';
+      if (c.embed_url && c.embed_url !== currentIframeUrl) {
+        currentIframeUrl = c.embed_url;
+        document.getElementById('tbIframe').src = c.embed_url;
+        document.getElementById('externalDashboardLink').href = c.embed_url;
+      }
+    }
+
+    function toggleCoreiotConfig() {
+      document.getElementById('coreiotConfigPanel').classList.toggle('hidden');
+    }
+
+    function toggleIframeDashboard() {
+      document.getElementById('iframeContainer').classList.toggle('hidden');
+    }
+
+    async function saveCoreiotConfig() {
+      const payload = {
+        url: document.getElementById('tbUrl').value.trim(),
+        public_id: document.getElementById('tbPublicId').value.trim(),
+        dashboard_id: document.getElementById('tbDashboardId').value.trim(),
+        device_token: document.getElementById('tbDeviceToken').value.trim(),
+      };
+      const res = await fetch('/api/console/coreiot', { method: 'POST', headers: apiHeaders(), body: JSON.stringify(payload) });
+      const data = await res.json();
+      state.coreiot = data.config;
+      populateCoreiotConfig();
+      renderIotDashboard(data);
+      document.getElementById('coreiotConfigPanel').classList.add('hidden');
+    }
+
+    async function refreshIot(force = false) {
+      try {
+        const res = await fetch(`/api/console/iot?refresh=${force}`, { headers: apiHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        renderIotDashboard(data);
+      } catch (e) {}
+    }
+
+    function renderIotDashboard(data) {
+      const devContainer = document.getElementById('iotDevicesContainer');
+      devContainer.innerHTML = '';
+      (data.devices || []).forEach(d => {
+        const metrics = Object.entries(d.telemetry || {}).map(([k, v]) => {
+          const val = v.value !== null && v.value !== undefined ? Number(v.value).toFixed(2).replace(/\.00$/, '') : '--';
+          return `
+            <div class="p-3 rounded-lg bg-slate-950/70 border border-slate-800">
+              <div class="text-[11px] text-slate-400">${v.label || k}</div>
+              <div class="text-xl font-bold text-sky-300 mt-0.5">${val}<span class="text-xs font-normal text-slate-400">${v.unit || ''}</span></div>
+            </div>
+          `;
+        }).join('');
+
+        const lastTime = d.last_ts ? new Date(d.last_ts).toLocaleTimeString('vi-VN') : 'Chưa có mẫu';
+        const card = document.createElement('div');
+        card.className = 'p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between';
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm text-white flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ${d.name}
+              </span>
+              <span class="text-[10px] text-slate-500 font-mono">${d.id.slice(0, 8)}...</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5 mt-3">
+              ${metrics || '<div class="col-span-2 text-xs text-slate-500">Không có telemetry keys</div>'}
+            </div>
+          </div>
+          <div class="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Cập nhật: ${lastTime}</span>
+            <button onclick="sendQuickPrompt('Đọc cảm biến thiết bị ${d.name}')" class="text-sky-400 hover:underline">Hỏi AI →</button>
+          </div>
+        `;
+        devContainer.appendChild(card);
+      });
+
+      const ctrlContainer = document.getElementById('iotControlsContainer');
+      const labels = {
+        den_phong_khach: '💡 Đèn phòng khách',
+        quat_tran: '🌀 Quạt trần',
+        dieu_hoa: '❄️ Điều hòa nhiệt độ',
+      };
+      ctrlContainer.innerHTML = '';
+      Object.entries(data.controls || {}).forEach(([slug, st]) => {
+        const isOn = st === 'ON';
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-xs';
+        row.innerHTML = `
+          <span class="font-medium">${labels[slug] || slug}</span>
+          <button onclick="toggleDevice('${slug}', '${isOn ? 'off' : 'on'}')"
+            class="px-3 py-1 rounded-md font-bold text-[11px] transition ${isOn ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}">
+            ${isOn ? 'ĐANG BẬT (ON)' : 'ĐANG TẮT (OFF)'}
+          </button>
+        `;
+        ctrlContainer.appendChild(row);
+      });
+    }
+
+    async function toggleDevice(deviceName, action) {
+      const res = await fetch('/api/console/iot/control', {
+        method: 'POST',
+        headers: apiHeaders(),
+        body: JSON.stringify({ device_name: deviceName, action }),
+      });
+      if (res.ok) await refreshIot(false);
+    }
+
+    function renderLogs() {
+      const box = document.getElementById('logsContainer');
+      if (!state.logs || !state.logs.length) {
+        box.innerHTML = '<div class="text-slate-500 text-xs">Chưa có lượt gọi nào. Hãy thử hỏi AI ở khung bên trái!</div>';
+        return;
+      }
+      box.innerHTML = state.logs.map(l => {
+        const toolsHtml = (l.tools || []).map(t =>
+          `<div class="mt-1.5 p-2 rounded bg-slate-950 border border-slate-800 font-mono text-[11px]">
+            <div class="text-amber-300">🔧 ${t.name}(${JSON.stringify(t.args)}) <span class="text-slate-500">${t.ms}ms</span></div>
+            <div class="text-emerald-300 mt-0.5">↳ ${t.result}</div>
+          </div>`
+        ).join('');
+        return `
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+              <span class="font-semibold text-sky-400">${l.agent_name}</span>
+              <span>${l.ts} • <strong class="text-emerald-400">${l.total_ms}ms</strong></span>
+            </div>
+            <div class="mt-1 text-slate-200"><strong>User:</strong> ${l.user}</div>
+            ${toolsHtml}
+            <div class="mt-1.5 text-slate-300"><strong>AI:</strong> ${l.reply}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function appendChatBubble(role, text, meta = '') {
+      const box = document.getElementById('chatBox');
+      const div = document.createElement('div');
+      if (role === 'user') {
+        div.className = 'p-3 rounded-xl bg-sky-500/20 border border-sky-500/30 text-sky-100 ml-8';
+        div.innerHTML = `<div class="text-[10px] text-sky-400 mb-0.5">Bạn</div><div>${text}</div>`;
+      } else {
+        div.className = 'p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 mr-8';
+        div.innerHTML = `<div class="text-[10px] text-emerald-400 mb-0.5">${meta || 'XiaoZhi'}</div><div>${text}</div>`;
+      }
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function sendQuickPrompt(text) {
+      document.getElementById('chatInput').value = text;
+      sendChat();
+    }
+
+    async function sendChat() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      const agentId = document.getElementById('chatAgentSelect').value || state.active_agent_id;
+      appendChatBubble('user', text);
+
+      const t0 = performance.now();
+      try {
+        const res = await fetch('/v1/chat/completions', {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify({
+            agent_id: agentId,
+            messages: [{ role: 'user', content: text }],
+          }),
+        });
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content || JSON.stringify(data);
+        const elapsed = Math.round(performance.now() - t0);
+        const agentObj = state.agents.find(a => a.id === agentId);
+        appendChatBubble('assistant', reply, `${agentObj ? agentObj.name : 'XiaoZhi'} (${elapsed}ms)`);
+        await loadAll(false);
+        if (document.getElementById('ttsAutoPlay').checked && reply) {
+          playTts(reply);
+        }
+      } catch (err) {
+        appendChatBubble('assistant', `Lỗi gọi Agent: ${err}`, 'System Error');
+      }
+    }
+
+    async function playTts(text) {
+      try {
+        const res = await fetch('/v1/audio/speech', {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify({ input: text, voice: 'vi_VN-vais1000-medium' }),
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.play();
+      } catch (e) {}
+    }
+
+    // WebAudio 16kHz Mono WAV Recorder for Faster-Whisper STT
+    let audioCtx = null, mediaStream = null, processor = null, audioChunks = [], isRecording = false;
+
+    async function toggleMicRecording() {
+      const btnLabel = document.getElementById('micBtnLabel');
+      if (!isRecording) {
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+          const source = audioCtx.createMediaStreamSource(mediaStream);
+          processor = audioCtx.createScriptProcessor(4096, 1, 1);
+          audioChunks = [];
+          processor.onaudioprocess = e => {
+            if (isRecording) audioChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+          };
+          source.connect(processor);
+          processor.connect(audioCtx.destination);
+          isRecording = true;
+          btnLabel.innerText = '⏹️ Dừng & Gửi';
+        } catch (err) {
+          alert('Không thể mở Microphone: ' + err.message);
+        }
+      } else {
+        isRecording = false;
+        btnLabel.innerText = '⏳ Đang nhận diện...';
+        processor.disconnect();
+        mediaStream.getTracks().forEach(t => t.stop());
+        const wavBlob = encodeWav(audioChunks, audioCtx.sampleRate);
+        await audioCtx.close();
+
+        try {
+          const form = new FormData();
+          form.append('file', wavBlob, 'speech.wav');
+          form.append('language', 'vi');
+          const key = document.getElementById('apiKeyInput').value.trim();
+          const res = await fetch('/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}` },
+            body: form,
+          });
+          const data = await res.json();
+          if (data.text && data.text.trim()) {
+            document.getElementById('chatInput').value = data.text.trim();
+            await sendChat();
+          } else {
+            appendChatBubble('assistant', 'Không nghe rõ giọng nói, vui lòng thử lại.', 'Faster-Whisper STT');
+          }
+        } catch (e) {
+          appendChatBubble('assistant', 'Lỗi nhận diện giọng nói: ' + e.message, 'STT Error');
+        }
+        btnLabel.innerText = '🎙️ Thu âm';
+      }
+    }
+
+    function encodeWav(chunks, sampleRate) {
+      const length = chunks.reduce((acc, c) => acc + c.length, 0);
+      const buffer = new ArrayBuffer(44 + length * 2);
+      const view = new DataView(buffer);
+      const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + length * 2, true);
+      writeStr(8, 'WAVEfmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, length * 2, true);
+      let offset = 44;
+      for (const chunk of chunks) {
+        for (let i = 0; i < chunk.length; i++, offset += 2) {
+          const s = Math.max(-1, Math.min(1, chunk[i]));
+          view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+      }
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    function toggleAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (document.getElementById('autoRefreshToggle').checked) {
+        refreshTimer = setInterval(() => refreshIot(false), 5000);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadAll(false);
+      toggleAutoRefresh();
+    });
+  </script>
+</body>
+</html>

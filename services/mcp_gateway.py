@@ -14,8 +14,15 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request, status
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 import httpx
+
+from services.mcp_server import (
+    configure_coreiot,
+    device_control as tb_device_control,
+    fetch_iot_dashboard_data,
+    get_coreiot_config,
+)
 
 # MCP SDK imports
 try:
@@ -125,11 +132,116 @@ class MCPClientManager:
 mcp_manager = MCPClientManager(MCP_SERVER_SCRIPT)
 http_client: Optional[httpx.AsyncClient] = None
 MCP_ENDPOINT = os.getenv("MCP_ENDPOINT", "").strip()
+STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "console_state.json")
+CONSOLE_HTML_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "console.html")
+
+ALL_TOOL_NAMES = [
+    "get_current_time",
+    "get_weather",
+    "list_iot_devices",
+    "get_sensor_data",
+    "get_dht20_environment",
+    "device_control",
+]
+
+DEFAULT_AGENTS: List[Dict[str, Any]] = [
+    {
+        "id": "xiaozhi-home",
+        "name": "XiaoZhi Quản Gia Nhà Thông Minh",
+        "role": "Quản gia IoT & Điều khiển Thiết bị",
+        "model": OLLAMA_MODEL,
+        "voice": "vi_VN-vais1000-medium",
+        "temperature": 0.7,
+        "system_prompt": DEFAULT_SYSTEM_PROMPT,
+        "enabled_tools": list(ALL_TOOL_NAMES),
+    },
+    {
+        "id": "xiaozhi-lab",
+        "name": "Chuyên Gia Giám Sát CoreIoT Lab",
+        "role": "Phân tích cảm biến DHT20 & LAB1 trên ThingsBoard",
+        "model": OLLAMA_MODEL,
+        "voice": "vi_VN-vais1000-medium",
+        "temperature": 0.3,
+        "system_prompt": (
+            "Bạn là kỹ sư giám sát trạm IoT trên nền tảng CoreIoT ThingsBoard. "
+            "Khi người dùng hỏi về thiết bị hoặc cảm biến (như DHT20, LAB1_2414100), "
+            "hãy dùng công cụ list_iot_devices hoặc get_sensor_data để báo cáo chính xác thông số và đưa ra nhận xét ngắn gọn."
+        ),
+        "enabled_tools": ["list_iot_devices", "get_sensor_data", "get_dht20_environment", "device_control", "get_current_time"],
+    },
+    {
+        "id": "xiaozhi-companion",
+        "name": "Trợ Lý Gia Đình Thân Thiện",
+        "role": "Trò chuyện, thời tiết & giải đáp kiến thức",
+        "model": OLLAMA_MODEL,
+        "voice": "vi_VN-vais1000-medium",
+        "temperature": 0.8,
+        "system_prompt": (
+            "Bạn là người bạn đồng hành vui vẻ trong gia đình. "
+            "Trả lời bằng tiếng Việt ấm áp, dí dỏm, ngắn gọn (1-2 câu) phù hợp để phát qua loa."
+        ),
+        "enabled_tools": ["get_current_time", "get_weather"],
+    },
+]
+
+console_state: Dict[str, Any] = {
+    "active_agent_id": "xiaozhi-home",
+    "agents": list(DEFAULT_AGENTS),
+}
+recent_logs: List[Dict[str, Any]] = []
+
+
+def _load_state() -> None:
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data.get("agents"), list) and data["agents"]:
+                    console_state["agents"] = data["agents"]
+                if data.get("active_agent_id"):
+                    console_state["active_agent_id"] = data["active_agent_id"]
+                if isinstance(data.get("coreiot"), dict):
+                    configure_coreiot(**data["coreiot"])
+        except Exception as exc:
+            logger.warning("Could not load console_state.json: %s", exc)
+
+
+def _save_state() -> None:
+    try:
+        cfg = get_coreiot_config()
+        payload = {
+            "active_agent_id": console_state["active_agent_id"],
+            "agents": console_state["agents"],
+            "coreiot": {
+                "url": cfg["url"],
+                "public_id": cfg["public_id"],
+                "dashboard_id": cfg["dashboard_id"],
+                "device_token": cfg["device_token"],
+            },
+        }
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        logger.warning("Could not save console_state.json: %s", exc)
+
+
+def _get_agent(agent_id: Optional[str] = None) -> Dict[str, Any]:
+    target_id = agent_id or console_state.get("active_agent_id") or "xiaozhi-home"
+    for a in console_state["agents"]:
+        if a["id"] == target_id:
+            return a
+    return console_state["agents"][0]
+
+
+def _append_log(entry: Dict[str, Any]) -> None:
+    recent_logs.insert(0, entry)
+    del recent_logs[30:]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global http_client
+    _load_state()
     http_client = httpx.AsyncClient(timeout=120.0)
     await mcp_manager.start()
     pipe_task = None
@@ -168,6 +280,111 @@ def verify_api_key(authorization: Optional[str] = Header(None)) -> None:
         )
 
 
+@app.get("/console", response_class=HTMLResponse)
+async def serve_console():
+    if os.path.exists(CONSOLE_HTML_FILE):
+        with open(CONSOLE_HTML_FILE, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Console UI file not found</h1>", status_code=404)
+
+
+@app.get("/api/console/state")
+async def get_console_state(authorization: Optional[str] = Header(None)):
+    verify_api_key(authorization)
+    return {
+        "active_agent_id": console_state["active_agent_id"],
+        "agents": console_state["agents"],
+        "available_tools": mcp_manager.openai_tools,
+        "coreiot": get_coreiot_config(),
+        "logs": recent_logs,
+    }
+
+
+@app.post("/api/console/agents")
+async def save_agent(request: Request, authorization: Optional[str] = Header(None)):
+    verify_api_key(authorization)
+    body = await request.json()
+    agent_id = (body.get("id") or f"agent-{uuid.uuid4().hex[:6]}").strip()
+    agent_data = {
+        "id": agent_id,
+        "name": (body.get("name") or "Agent Mới").strip(),
+        "role": (body.get("role") or "Trợ lý thông minh").strip(),
+        "model": (body.get("model") or OLLAMA_MODEL).strip(),
+        "voice": (body.get("voice") or "vi_VN-vais1000-medium").strip(),
+        "temperature": float(body.get("temperature", 0.7)),
+        "system_prompt": (body.get("system_prompt") or DEFAULT_SYSTEM_PROMPT).strip(),
+        "enabled_tools": body.get("enabled_tools") if isinstance(body.get("enabled_tools"), list) else list(ALL_TOOL_NAMES),
+    }
+    updated = False
+    for idx, existing in enumerate(console_state["agents"]):
+        if existing["id"] == agent_id:
+            console_state["agents"][idx] = agent_data
+            updated = True
+            break
+    if not updated:
+        console_state["agents"].append(agent_data)
+    if body.get("set_active"):
+        console_state["active_agent_id"] = agent_id
+    _save_state()
+    return {"status": "ok", "agent": agent_data, "active_agent_id": console_state["active_agent_id"]}
+
+
+@app.post("/api/console/agents/activate")
+async def activate_agent(request: Request, authorization: Optional[str] = Header(None)):
+    verify_api_key(authorization)
+    body = await request.json()
+    agent_id = body.get("agent_id", "").strip()
+    if any(a["id"] == agent_id for a in console_state["agents"]):
+        console_state["active_agent_id"] = agent_id
+        _save_state()
+        return {"status": "ok", "active_agent_id": agent_id}
+    raise HTTPException(status_code=404, detail="Agent not found")
+
+
+@app.delete("/api/console/agents/{agent_id}")
+async def delete_agent(agent_id: str, authorization: Optional[str] = Header(None)):
+    verify_api_key(authorization)
+    if len(console_state["agents"]) <= 1:
+        raise HTTPException(status_code=400, detail="Phải giữ lại ít nhất 1 Agent.")
+    console_state["agents"] = [a for a in console_state["agents"] if a["id"] != agent_id]
+    if console_state["active_agent_id"] == agent_id:
+        console_state["active_agent_id"] = console_state["agents"][0]["id"]
+    _save_state()
+    return {"status": "ok", "active_agent_id": console_state["active_agent_id"]}
+
+
+@app.get("/api/console/iot")
+async def get_console_iot(refresh: bool = False, authorization: Optional[str] = Header(None)):
+    verify_api_key(authorization)
+    data = await asyncio.to_thread(fetch_iot_dashboard_data, refresh)
+    return data
+
+
+@app.post("/api/console/coreiot")
+async def update_console_coreiot(request: Request, authorization: Optional[str] = Header(None)):
+    verify_api_key(authorization)
+    body = await request.json()
+    configure_coreiot(
+        url=body.get("url"),
+        public_id=body.get("public_id"),
+        dashboard_id=body.get("dashboard_id"),
+        device_token=body.get("device_token"),
+    )
+    _save_state()
+    data = await asyncio.to_thread(fetch_iot_dashboard_data, True)
+    return data
+
+
+@app.post("/api/console/iot/control")
+async def control_console_iot(request: Request, authorization: Optional[str] = Header(None)):
+    verify_api_key(authorization)
+    body = await request.json()
+    dev = body.get("device_name", "den_phong_khach")
+    act = body.get("action", "on")
+    msg = await asyncio.to_thread(tb_device_control, dev, act)
+    return {"status": "ok", "message": msg, "controls": fetch_iot_dashboard_data(False)["controls"]}
+
+
 @app.get("/health")
 async def health():
     return {
@@ -175,6 +392,8 @@ async def health():
         "service": "mcp-gateway",
         "ollama_url": OLLAMA_URL,
         "ollama_model": OLLAMA_MODEL,
+        "active_agent_id": console_state["active_agent_id"],
+        "agents_count": len(console_state["agents"]),
         "tools_count": len(mcp_manager.openai_tools),
         "tools": [t["function"]["name"] for t in mcp_manager.openai_tools],
     }
@@ -192,32 +411,42 @@ async def chat_completions(request: Request, authorization: Optional[str] = Head
     verify_api_key(authorization)
 
     body = await request.json()
-    model = body.get("model") or OLLAMA_MODEL
+    agent = _get_agent(body.get("agent_id"))
+    model = body.get("model") or agent.get("model") or OLLAMA_MODEL
     stream_requested = bool(body.get("stream", False))
-    temperature = body.get("temperature", 0.7)
+    temperature = body.get("temperature", agent.get("temperature", 0.7))
 
     # Standardize messages
     raw_messages = body.get("messages")
     if not raw_messages:
-        # Support simple prompt or text parameter
         prompt = body.get("prompt") or body.get("text", "")
         raw_messages = [{"role": "user", "content": prompt}]
 
-    # Ensure system prompt exists
+    user_text = next((m.get("content", "") for m in reversed(raw_messages) if m.get("role") == "user"), "")
+
+    # Ensure system prompt exists (from selected Agent profile)
     messages = list(raw_messages)
     has_system = any(m.get("role") == "system" for m in messages)
     if not has_system:
-        messages.insert(0, {"role": "system", "content": DEFAULT_SYSTEM_PROMPT})
+        messages.insert(0, {"role": "system", "content": agent.get("system_prompt") or DEFAULT_SYSTEM_PROMPT})
+
+    # Filter tools enabled for this Agent
+    enabled_names = set(agent.get("enabled_tools") or ALL_TOOL_NAMES)
+    agent_tools = [
+        t for t in mcp_manager.openai_tools
+        if t.get("function", {}).get("name") in enabled_names
+    ]
 
     # 1. Turn 1: Inference with Tools
     t0 = time.perf_counter()
-    turn1_payload = {
+    turn1_payload: Dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "tools": mcp_manager.openai_tools,
         "temperature": temperature,
         "stream": False,  # Turn 1 must inspect tool_calls
     }
+    if agent_tools:
+        turn1_payload["tools"] = agent_tools
 
     try:
         resp = await http_client.post(
@@ -253,6 +482,15 @@ async def chat_completions(request: Request, authorization: Optional[str] = Head
         )
 
         content = message.get("content", "")
+        _append_log({
+            "ts": time.strftime("%H:%M:%S"),
+            "agent_id": agent["id"],
+            "agent_name": agent["name"],
+            "user": user_text,
+            "tools": [],
+            "reply": content,
+            "total_ms": round(t_total, 1),
+        })
         if stream_requested:
             return StreamingResponse(
                 _stream_openai_text(content, model),
@@ -271,6 +509,7 @@ async def chat_completions(request: Request, authorization: Optional[str] = Head
     })
 
     t_tool_total = 0.0
+    executed_tools: List[Dict[str, Any]] = []
     for tc in tool_calls:
         func = tc.get("function", {})
         tool_name = func.get("name", "")
@@ -287,6 +526,12 @@ async def chat_completions(request: Request, authorization: Optional[str] = Head
         tool_res = await mcp_manager.call_tool(tool_name, args)
         t_tool_ms = (time.perf_counter() - t_tool_start) * 1000
         t_tool_total += t_tool_ms
+        executed_tools.append({
+            "name": tool_name,
+            "args": args,
+            "result": tool_res,
+            "ms": round(t_tool_ms, 1),
+        })
 
         logger.info(
             "[Tool Call] 🔧 '%s'(args=%s) -> '%s' (%.1fms)",
@@ -354,6 +599,15 @@ async def chat_completions(request: Request, authorization: Optional[str] = Head
         t_total,
     )
     logger.info("[Response] 🗣️ XiaoZhi: %s", final_content)
+    _append_log({
+        "ts": time.strftime("%H:%M:%S"),
+        "agent_id": agent["id"],
+        "agent_name": agent["name"],
+        "user": user_text,
+        "tools": executed_tools,
+        "reply": final_content,
+        "total_ms": round(t_total, 1),
+    })
 
     return JSONResponse(
         content=turn2_data,

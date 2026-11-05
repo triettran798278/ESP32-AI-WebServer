@@ -45,8 +45,11 @@ def health():
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"])
 async def proxy_all(request: Request, path: str):
-    # 1. Check API Key
-    if API_KEY:
+    norm_path = f"/{path}".rstrip("/") or "/"
+    is_console_page = norm_path in ("/", "/console") and request.method == "GET"
+
+    # 1. Check API Key (exempt browser load of /console UI)
+    if API_KEY and not is_console_page:
         auth_header = request.headers.get("authorization", "").strip()
         provided_key = ""
         if auth_header.startswith("Bearer "):
@@ -67,12 +70,17 @@ async def proxy_all(request: Request, path: str):
             )
 
     # 2. Route destination
-    norm_path = f"/{path}".rstrip("/")
-    if norm_path.startswith("/v1/audio/transcriptions"):
+    if is_console_page:
+        target_base = MCP_GATEWAY_URL
+        path = "console"
+    elif norm_path.startswith("/v1/audio/transcriptions"):
         target_base = WHISPER_URL
     elif norm_path.startswith("/v1/audio/speech") or norm_path == "/tts":
         target_base = PIPER_URL
-    elif norm_path in ("/v1/chat/completions", "/api/agent"):
+    elif (
+        norm_path in ("/v1/chat/completions", "/api/agent", "/v1/tools")
+        or norm_path.startswith("/api/console")
+    ):
         target_base = MCP_GATEWAY_URL
     else:
         # Default route to Ollama (/v1/models, /api/generate, etc.)
