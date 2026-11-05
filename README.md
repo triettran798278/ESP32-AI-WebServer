@@ -26,10 +26,17 @@ Hệ thống AI Backend **hoàn toàn cục bộ (Full-Local)** phục vụ làm
          │ /v1/chat/*           │ /v1/audio/transcribe │ /v1/audio/speech
          ▼                      ▼                      ▼
   ┌─────────────┐        ┌─────────────┐        ┌─────────────┐
-  │   Ollama    │        │Faster-Whisper│        │  Piper-TTS  │
-  │ (RTX GPU)   │        │ (CPU Int8)  │        │ (CPU ONNX)  │
-  │ Port: 11434 │        │ Port: 8000  │        │ Port: 10200 │
-  └─────────────┘        └─────────────┘        └─────────────┘
+  │ MCP Gateway │        │Faster-Whisper│        │  Piper-TTS  │
+  │ (Port 8008) │        │ (CPU Int8)  │        │ (CPU ONNX)  │
+  └──────┬──────┘        │ Port: 8000  │        │ Port: 10200 │
+         │ Tool Calling  └─────────────┘        └─────────────┘
+         ├──────────────┐
+         ▼              ▼
+  ┌─────────────┐┌─────────────┐
+  │ MCP Server  ││   Ollama    │
+  │ (FastMCP)   ││ (RTX GPU)   │
+  │ stdio IPC   ││ Port: 11434 │
+  └─────────────┘└─────────────┘
 ```
 
 ---
@@ -38,17 +45,24 @@ Hệ thống AI Backend **hoàn toàn cục bộ (Full-Local)** phục vụ làm
 
 ```
 02_tts_stt_model/
-├── docker-compose.yml          # Điều phối 4 container (Ollama, Whisper, Piper, Gateway)
+├── docker-compose.yml          # Điều phối 5 container (Ollama, Whisper, Piper, MCP-Gateway, Gateway)
 ├── start_all.bat               # Script 1-Click khởi chạy, tải model và test toàn trình trên Windows
 ├── run_mic_test.bat            # Script 1-Click bật trợ lý giọng nói Real-Time rảnh tay trên Laptop
 ├── mic_test.py                 # Trợ lý giọng nói Real-Time (Auto VAD + SSE Streaming + Context Memory)
 ├── init_models.bat             # Script tải model tiếng Việt & pull Qwen (Windows)
 ├── init_models.sh              # Script tải model tiếng Việt & pull Qwen (Linux)
 ├── test_pipeline.py            # Script kiểm thử Round-Trip (LLM -> TTS -> STT -> Gateway)
+├── test_mcp_flow.py            # Script kiểm thử tự động MCP Tool Calling & Direct LLM
+├── HANDOFF.md                  # Tài liệu bàn giao kỹ thuật toàn trình (Full System Handoff)
 ├── XIAOZHI_CONFIG.md           # Mẫu cấu hình XiaoZhi Server (YAML & JSON)
 ├── DEPLOY_MACHINE_B.md         # Hướng dẫn kết nối từ máy Linux khác
 ├── DEPLOY_AWS.md               # Hướng dẫn đưa toàn bộ hệ thống lên máy chủ AWS EC2
 │
+├── services/                   # Module MCP Agent Gateway & MCP Server
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── mcp_gateway.py          # FastAPI Gateway điều phối Tool Calling với Ollama
+│   └── mcp_server.py           # FastMCP Server định nghĩa tools (Time GMT+7, Weather, Device)
 ├── gateway/                    # Mã nguồn Unified AI Gateway (Port 8080)
 │   ├── Dockerfile
 │   └── server.py

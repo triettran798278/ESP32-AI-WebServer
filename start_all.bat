@@ -25,7 +25,7 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-echo [OK] 4 Container da online: Ollama, Faster-Whisper, Piper-TTS, Gateway 8080.
+echo [OK] 5 Container da online: Ollama, Faster-Whisper, Piper-TTS, MCP-Gateway 8008, Gateway 8080.
 echo.
 
 echo [3/3] Kiem tra Model va chay Kiem thu toan trinh...
