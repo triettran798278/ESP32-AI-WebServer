@@ -53,6 +53,23 @@ services:
     volumes:
       - ./piper-models:/models
 
+  mcp-gateway:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: mcp-gateway
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - PORT=8008
+      - API_KEY=sk-xiaozhi-local-secret
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen2.5:3b-instruct
+    depends_on:
+      - ollama
+
   gateway:
     build:
       context: ./gateway
@@ -66,10 +83,12 @@ services:
       - WHISPER_URL=http://faster-whisper:8000
       - PIPER_URL=http://piper-tts:10200
       - OLLAMA_URL=http://ollama:11434
+      - MCP_GATEWAY_URL=http://mcp-gateway:8008
     depends_on:
       - ollama
       - faster-whisper
       - piper-tts
+      - mcp-gateway
 
 volumes:
   ollama-data:

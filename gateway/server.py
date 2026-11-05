@@ -9,6 +9,7 @@ API_KEY = os.getenv("API_KEY", "sk-xiaozhi-local-secret").strip()
 WHISPER_URL = os.getenv("WHISPER_URL", "http://faster-whisper:8000").rstrip("/")
 PIPER_URL = os.getenv("PIPER_URL", "http://piper-tts:10200").rstrip("/")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434").rstrip("/")
+MCP_GATEWAY_URL = os.getenv("MCP_GATEWAY_URL", "http://mcp-gateway:8008").rstrip("/")
 
 client: httpx.AsyncClient = None  # type: ignore
 
@@ -35,7 +36,8 @@ def health():
             "/v1/audio/transcriptions": WHISPER_URL,
             "/v1/audio/speech": PIPER_URL,
             "/tts": PIPER_URL,
-            "/v1/chat/completions": OLLAMA_URL,
+            "/v1/chat/completions": MCP_GATEWAY_URL,
+            "/api/agent": MCP_GATEWAY_URL,
             "/v1/*": OLLAMA_URL,
         },
     }
@@ -70,8 +72,10 @@ async def proxy_all(request: Request, path: str):
         target_base = WHISPER_URL
     elif norm_path.startswith("/v1/audio/speech") or norm_path == "/tts":
         target_base = PIPER_URL
+    elif norm_path in ("/v1/chat/completions", "/api/agent"):
+        target_base = MCP_GATEWAY_URL
     else:
-        # Default route to Ollama (/v1/chat/completions, /v1/models, /api/generate, etc.)
+        # Default route to Ollama (/v1/models, /api/generate, etc.)
         target_base = OLLAMA_URL
 
     target_url = f"{target_base}/{path}"
