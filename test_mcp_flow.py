@@ -106,7 +106,7 @@ def run_tests(url: str) -> bool:
 
     # --- Scenario 3: Tool Question (get_dht20_environment CoreIoT) ---
     q3 = "Kiểm tra nhiệt độ và độ ẩm phòng hiện tại giúp tôi với."
-    print(f"[TEST 3/3] Câu hỏi cần Tool Cảm biến DHT20 CoreIoT: '{q3}'")
+    print(f"[TEST 3/4] Câu hỏi cần Tool Cảm biến DHT20 CoreIoT: '{q3}'")
     try:
         res3 = send_chat_completion(url, q3)
         content3 = res3.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
@@ -120,6 +120,26 @@ def run_tests(url: str) -> bool:
 
         assert content3, "Phản hồi không được rỗng"
         print("  -> Kết quả  : PASS ✅ (MCP DHT20 Real Telemetry + Qwen Synthesis)\n")
+    except Exception as exc:
+        print(f"  -> Thất bại : {exc} ❌\n")
+        return False
+
+    # --- Scenario 4: Tool Question (list_iot_devices Auto-Discovery) ---
+    q4 = "Hãy liệt kê tất cả thiết bị IoT đang có trên hệ thống ThingsBoard của tôi."
+    print(f"[TEST 4/4] Câu hỏi Auto-Discovery ThingsBoard: '{q4}'")
+    try:
+        res4 = send_chat_completion(url, q4)
+        content4 = res4.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        wall4 = res4.get("_wall_time_ms", 0.0)
+        tool_time4 = res4["_headers"].get("X-Latency-Tool-Ms")
+
+        print(f"  -> Phản hồi: {content4}")
+        print(f"  -> Latency : {wall4:.1f}ms (Wall-clock)")
+        if tool_time4:
+            print(f"  -> Tool latency header: {tool_time4}ms (Tự động khám phá thiết bị ThingsBoard!)")
+
+        assert content4, "Phản hồi không được rỗng"
+        print("  -> Kết quả  : PASS ✅ (ThingsBoard Auto-Discovery + Qwen Synthesis)\n")
     except Exception as exc:
         print(f"  -> Thất bại : {exc} ❌\n")
         return False

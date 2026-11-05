@@ -124,6 +124,7 @@ class MCPClientManager:
 
 mcp_manager = MCPClientManager(MCP_SERVER_SCRIPT)
 http_client: Optional[httpx.AsyncClient] = None
+MCP_ENDPOINT = os.getenv("MCP_ENDPOINT", "").strip()
 
 
 @asynccontextmanager
@@ -131,7 +132,13 @@ async def lifespan(app: FastAPI):
     global http_client
     http_client = httpx.AsyncClient(timeout=120.0)
     await mcp_manager.start()
+    pipe_task = None
+    if MCP_ENDPOINT:
+        from services.mcp_pipe import run_pipe
+        pipe_task = asyncio.create_task(run_pipe(MCP_ENDPOINT, MCP_SERVER_SCRIPT))
     yield
+    if pipe_task:
+        pipe_task.cancel()
     await mcp_manager.stop()
     if http_client:
         await http_client.aclose()

@@ -65,13 +65,19 @@ Toàn bộ hệ thống được container hóa và điều phối qua [`docker-
 
 ### A. MCP Server ([`services/mcp_server.py`](file:///services/mcp_server.py))
 - Xây dựng bằng thư viện `mcp` (FastMCP), giao tiếp qua cơ chế `stdio` tiêu chuẩn (không tốn cổng mạng, độ trễ IPC cực thấp).
-- Cung cấp 4 tools thiết thực với schema ngắn gọn, tối ưu cho khả năng hiểu của model 3B:
+- Tích hợp **ThingsBoard Auto-Discovery Connector** kết nối tới `https://app.coreiot.io`, tự động khám phá toàn bộ thiết bị và telemetry keys trên tài khoản mà không cần khai báo thủ công:
   1. `get_current_time()`: Lấy ngày, giờ, thứ trong tuần theo giờ Việt Nam chuẩn (GMT+7).
   2. `get_weather(city: str)`: Tra cứu thông tin thời tiết tại tỉnh/thành phố.
-  3. `device_control(device_name: str, action: str)`: Điều khiển bật/tắt thiết bị smarthome.
-  4. `get_dht20_environment()`: Đọc dữ liệu nhiệt độ và độ ẩm không khí thời gian thực từ cảm biến DHT20 trên nền tảng CoreIoT (`app.coreiot.io`).
+  3. `list_iot_devices()`: Tự động quét và liệt kê toàn bộ thiết bị trên ThingsBoard (`DHT20`, `LAB1_2414100`, ...) cùng các chỉ số cảm biến của từng thiết bị.
+  4. `get_sensor_data(device_name: str)`: Đọc dữ liệu thời gian thực của bất kỳ thiết bị nào theo tên (hoặc `"all"` cho toàn bộ thiết bị).
+  5. `get_dht20_environment()`: Đọc nhanh nhiệt độ và độ ẩm từ cảm biến `DHT20`.
+  6. `device_control(device_name: str, action: str)`: Điều khiển bật/tắt thiết bị smarthome và đồng bộ Client Attributes lên ThingsBoard qua `COREIOT_DEVICE_TOKEN`.
 
-### B. MCP Agent Gateway ([`services/mcp_gateway.py`](file:///services/mcp_gateway.py))
+### B. XiaoZhi Cloud MCP Pipe ([`services/mcp_pipe.py`](file:///services/mcp_pipe.py))
+- Cầu nối WebSocket `<->` stdio cho phép gắn toàn bộ cụm MCP Tools của ThingsBoard trực tiếp vào Agent trên trang quản trị đám mây `https://xiaozhi.me/console/agents` thông qua `MCP_ENDPOINT` (`wss://api.xiaozhi.me/mcp/?token=...`).
+- Có thể chạy độc lập (`python services/mcp_pipe.py "wss://..."`) hoặc tự động chạy ngầm trong container `mcp-gateway` khi khai báo biến môi trường `MCP_ENDPOINT`.
+
+### C. MCP Agent Gateway ([`services/mcp_gateway.py`](file:///services/mcp_gateway.py))
 - Viết bằng FastAPI + `httpx`, hoạt động như một MCP Client:
   - Khi khởi động: Tự động kết nối tới `mcp_server.py` qua stdio, khám phá tools và chuyển đổi (convert) JSON Schema sang format `tools` chuẩn của OpenAI.
   - Xử lý **Turn 1**: Gửi prompt kèm định nghĩa tools tới Ollama `POST /v1/chat/completions`.
