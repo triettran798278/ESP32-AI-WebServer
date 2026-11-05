@@ -63,7 +63,7 @@ def run_tests(url: str) -> bool:
 
     # --- Scenario 1: Normal Question (Direct Inference) ---
     q1 = "Chào bạn, bạn là ai?"
-    print(f"[TEST 1/2] Câu hỏi thông thường: '{q1}'")
+    print(f"[TEST 1/3] Câu hỏi thông thường: '{q1}'")
     try:
         res1 = send_chat_completion(url, q1)
         content1 = res1.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
@@ -86,7 +86,7 @@ def run_tests(url: str) -> bool:
 
     # --- Scenario 2: Tool Question (get_current_time) ---
     q2 = "Bây giờ là mấy giờ rồi?"
-    print(f"[TEST 2/2] Câu hỏi cần Tool: '{q2}'")
+    print(f"[TEST 2/3] Câu hỏi cần Tool Thời gian: '{q2}'")
     try:
         res2 = send_chat_completion(url, q2)
         content2 = res2.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
@@ -100,6 +100,26 @@ def run_tests(url: str) -> bool:
         
         assert content2, "Phản hồi không được rỗng"
         print("  -> Kết quả  : PASS ✅ (MCP Tool call + Follow-up synthesis)\n")
+    except Exception as exc:
+        print(f"  -> Thất bại : {exc} ❌\n")
+        return False
+
+    # --- Scenario 3: Tool Question (get_dht20_environment CoreIoT) ---
+    q3 = "Kiểm tra nhiệt độ và độ ẩm phòng hiện tại giúp tôi với."
+    print(f"[TEST 3/3] Câu hỏi cần Tool Cảm biến DHT20 CoreIoT: '{q3}'")
+    try:
+        res3 = send_chat_completion(url, q3)
+        content3 = res3.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        wall3 = res3.get("_wall_time_ms", 0.0)
+        tool_time3 = res3["_headers"].get("X-Latency-Tool-Ms")
+
+        print(f"  -> Phản hồi: {content3}")
+        print(f"  -> Latency : {wall3:.1f}ms (Wall-clock)")
+        if tool_time3:
+            print(f"  -> Tool latency header: {tool_time3}ms (Đọc số liệu DHT20 thực tế từ CoreIoT!)")
+
+        assert content3, "Phản hồi không được rỗng"
+        print("  -> Kết quả  : PASS ✅ (MCP DHT20 Real Telemetry + Qwen Synthesis)\n")
     except Exception as exc:
         print(f"  -> Thất bại : {exc} ❌\n")
         return False
@@ -148,6 +168,30 @@ class MockOllamaHandler(http.server.BaseHTTPRequestHandler):
                     "index": 0,
                     "message": {"role": "assistant", "content": resp_content},
                     "finish_reason": "stop"
+                }]
+            }
+        elif "nhiệt độ" in prompt_text or "độ ẩm" in prompt_text or "dht20" in prompt_text:
+            # Turn 1: Trigger tool get_dht20_environment
+            data = {
+                "id": "chatcmpl-mock-turn1-dht20",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": "qwen2.5:3b-instruct",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [{
+                            "id": "call_dht20_001",
+                            "type": "function",
+                            "function": {
+                                "name": "get_dht20_environment",
+                                "arguments": "{}"
+                            }
+                        }]
+                    },
+                    "finish_reason": "tool_calls"
                 }]
             }
         elif "mấy giờ" in prompt_text or "thời gian" in prompt_text:

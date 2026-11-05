@@ -65,10 +65,11 @@ Toàn bộ hệ thống được container hóa và điều phối qua [`docker-
 
 ### A. MCP Server ([`services/mcp_server.py`](file:///services/mcp_server.py))
 - Xây dựng bằng thư viện `mcp` (FastMCP), giao tiếp qua cơ chế `stdio` tiêu chuẩn (không tốn cổng mạng, độ trễ IPC cực thấp).
-- Cung cấp 3 tools thiết thực với schema ngắn gọn, tối ưu cho khả năng hiểu của model 3B:
+- Cung cấp 4 tools thiết thực với schema ngắn gọn, tối ưu cho khả năng hiểu của model 3B:
   1. `get_current_time()`: Lấy ngày, giờ, thứ trong tuần theo giờ Việt Nam chuẩn (GMT+7).
   2. `get_weather(city: str)`: Tra cứu thông tin thời tiết tại tỉnh/thành phố.
   3. `device_control(device_name: str, action: str)`: Điều khiển bật/tắt thiết bị smarthome.
+  4. `get_dht20_environment()`: Đọc dữ liệu nhiệt độ và độ ẩm không khí thời gian thực từ cảm biến DHT20 trên nền tảng CoreIoT (`app.coreiot.io`).
 
 ### B. MCP Agent Gateway ([`services/mcp_gateway.py`](file:///services/mcp_gateway.py))
 - Viết bằng FastAPI + `httpx`, hoạt động như một MCP Client:
