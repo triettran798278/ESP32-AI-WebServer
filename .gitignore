@@ -6,11 +6,26 @@ __pycache__/
 tmp/
 .pytest_cache/
 
-# Virtual environments
+# Virtual environments & secrets
 .env
+.env*
 .venv/
 venv/
 ENV/
+*.db
+*.db-wal
+*.db-shm
+deploy/platform-data/*.db*
+
+# Third-party subsystems & builds
+node_modules/
+build/
+build-*/
+thingsboard/
+xiaozhi-server/
+firmware/build*
+firmware/managed_components/
+firmware/backup/
 
 # Large AI Model checkpoints (Downloaded automatically via init_models.bat / init_models.sh)
 piper-models/

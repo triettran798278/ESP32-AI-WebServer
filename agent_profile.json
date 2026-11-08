@@ -1,0 +1,19 @@
+{
+  "id": "agent_101",
+  "name": "Desk Companion (ESP32-S3)",
+  "role": "Nova",
+  "integrations": {
+    "thingsboard": {
+      "host": "http://127.0.0.1:8080",
+      "api_key": "tb_963y36TYm3j5OwJjAbPiZIifTCHTMB0WBZVstE9DVa9pjN4dB-jK_7gfTAQtm_PczbuaCkqq-e-AuwXNW-kIyQ",
+      "timeout_seconds": 10.0
+    }
+  },
+  "config": {
+    "language": "vi",
+    "llmModel": "qwen2.5:3b-instruct",
+    "mcpEndpoints": [
+      "thingsboard-tools"
+    ]
+  }
+}

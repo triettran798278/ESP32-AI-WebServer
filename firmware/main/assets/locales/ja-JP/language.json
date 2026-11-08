@@ -1,0 +1,58 @@
+{
+    "language": {
+        "type": "ja-JP"
+    },
+    "strings": {
+        "WARNING": "",
+        "INFO": "",
+        "ERROR": "エラー",
+        "VERSION": "バージョン ",
+        "LOADING_PROTOCOL": "サーバーにログイン...",
+        "INITIALIZING": "...",
+        "PIN_ERROR": "SIMカードをしてください",
+        "REG_ERROR": "ネットワークにできません. ネットワークをしてください",
+        "DETECTING_MODULE": "モジュールを...",
+        "REGISTERING_NETWORK": "ネットワーク...",
+        "CHECKING_NEW_VERSION": "しいバージョンを...",
+        "CHECK_NEW_VERSION_FAILED": "updateにしました. %d にします: %s",
+        "SWITCH_TO_WIFI_NETWORK": "Wi-Fiにりえ...",
+        "SWITCH_TO_4G_NETWORK": "4Gにりえ...",
+
+        "STANDBY": "",
+        "CONNECT_TO": " ",
+        "CONNECTING": "...",
+        "CONNECTED_TO": " ",
+
+        "LISTENING": "リスニング...",
+        "SPEAKING": "しています...",
+
+        "SERVER_NOT_FOUND": "なサーバーをしています",
+        "SERVER_NOT_CONNECTED": "サーバーにできません. でもうおしください",
+        "SERVER_TIMEOUT": "がしました",
+        "SERVER_ERROR": "にしました. ネットワークをしてください",
+
+        "CONNECT_TO_HOTSPOT": "スマートフォンをWi-Fi ",
+        "ACCESS_VIA_BROWSER": " にし, ブラウザでアクセスしてください ",
+        "WIFI_CONFIG_MODE": "ネットワークモード",
+        "ENTERING_WIFI_CONFIG_MODE": "ネットワーク...",
+        "SCANNING_WIFI": "Wi-Fiをスキャン...",
+
+        "NEW_VERSION": "しいバージョン ",
+        "OTA_UPGRADE": "OTAアップグレード",
+        "UPGRADING": "システムをアップグレード...",
+        "UPGRADE_FAILED": "アップグレード",
+        "ACTIVATION": "デバイスをアクティベート",
+
+        "BATTERY_LOW": "バッテリーがなくなっています",
+        "BATTERY_CHARGING": "",
+        "BATTERY_FULL": "バッテリータン",
+        "BATTERY_NEED_CHARGE": "バッテリーがしています. してください",
+
+        "VOLUME": "volume ",
+        "MUTED": "ミュートされています",
+        "MAX_VOLUME": "volume",
+
+        "RTC_MODE_OFF": "AEC ",
+        "RTC_MODE_ON": "AEC "
+    }
+}

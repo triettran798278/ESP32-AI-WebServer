@@ -1,0 +1,90 @@
+[
+  {
+    "id": "agent_101",
+    "name": "Desk Companion (ESP32-S3)",
+    "role": "Nova",
+    "status": "online",
+    "language": "vi",
+    "tool_policy": "full_control",
+    "prompt": "Bạn là Nova, trợ lý giọng nói thông minh cho gia đình. Trả lời bằng tiếng Việt ngắn gọn, súc tích (1-2 câu), tự nhiên để phát âm qua loa TTS. Khi người dùng hỏi về cảm biến, thông số môi trường (nhiệt độ, độ ẩm, CO2, áp suất) hoặc yêu cầu điều khiển thiết bị, hãy sử dụng các công cụ ThingsBoard tương ứng (list_devices, get_telemetry, send_rpc).",
+    "tts": {
+      "voice": "vi_female_linh",
+      "speed": "standard"
+    },
+    "llm": {
+      "model": "qwen2.5:3b-instruct"
+    },
+    "integrations": {
+      "thingsboard": {
+        "host": "https://codehelpers.tech",
+        "api_key": "tb_G5TSH2WJsF3g25Q_7jImZwyUpdAYqGtI6cT86c-dMCKy_d8WZ3M3rNjn9zhzOT5Y9AnvV-KKQPpIQChD7qPluA",
+        "display_name": "CodeHelpers Production IoT",
+        "timeout_seconds": 10.0
+      }
+    },
+    "devices": [],
+    "chats": []
+  },
+  {
+    "id": "agent_102",
+    "name": "Living Room Monitor (Virtual ESP32)",
+    "role": "Luna",
+    "status": "online",
+    "language": "en",
+    "tool_policy": "read_only_telemetry",
+    "prompt": "You are Luna, an environmental monitoring and room atmosphere assistant. Answer strictly in English in 1 concise sentence. You have read-only access to query sensors and cannot perform RPC control or switch state changes.",
+    "tts": {
+      "voice": "en_US-lessac-medium",
+      "speed": "standard"
+    },
+    "llm": {
+      "model": "qwen2.5:3b-instruct"
+    },
+    "integrations": {
+      "thingsboard": {
+        "host": "https://codehelpers.tech",
+        "api_key": "tb_G5TSH2WJsF3g25Q_7jImZwyUpdAYqGtI6cT86c-dMCKy_d8WZ3M3rNjn9zhzOT5Y9AnvV-KKQPpIQChD7qPluA",
+        "display_name": "CodeHelpers Production IoT",
+        "timeout_seconds": 10.0
+      }
+    },
+    "devices": [
+      {
+        "mac": "00:11:22:33:44:55",
+        "name": "Virtual ESP32 Test Node"
+      }
+    ],
+    "chats": []
+  },
+  {
+    "id": "agent_103",
+    "name": "Virtual PC Tester (Browser/Microphone)",
+    "role": "Aero",
+    "status": "online",
+    "language": "vi",
+    "tool_policy": "full_control",
+    "prompt": "Bạn là Aero, trợ lý giọng nói trên máy tính (PC Virtual Companion). Trả lời bằng tiếng Việt ngắn gọn, súc tích (1-2 câu), tự nhiên để phát âm qua loa máy tính. Bạn hỗ trợ người dùng kiểm thử đàm thoại trực tiếp qua microphone và loa máy tính, kiểm tra nhận diện giọng nói và tích hợp nhà thông minh ThingsBoard.",
+    "tts": {
+      "voice": "vi_female_linh",
+      "speed": "standard"
+    },
+    "llm": {
+      "model": "qwen2.5:3b-instruct"
+    },
+    "integrations": {
+      "thingsboard": {
+        "host": "https://codehelpers.tech",
+        "api_key": "tb_G5TSH2WJsF3g25Q_7jImZwyUpdAYqGtI6cT86c-dMCKy_d8WZ3M3rNjn9zhzOT5Y9AnvV-KKQPpIQChD7qPluA",
+        "display_name": "CodeHelpers Production IoT",
+        "timeout_seconds": 10.0
+      }
+    },
+    "devices": [
+      {
+        "mac": "02:00:00:00:00:01",
+        "name": "PC Virtual Microphone & Speaker"
+      }
+    ],
+    "chats": []
+  }
+]

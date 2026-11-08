@@ -1,0 +1,3 @@
+  board: ESP32-S3-Touch-LCD-3.5B
+: 
+https://www.waveshare.net/shop/ESP32-S3-Touch-LCD-3.5B.htm

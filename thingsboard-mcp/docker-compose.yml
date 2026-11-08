@@ -1,0 +1,15 @@
+services:
+  thingsboard-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: thingsboard-mcp
+    restart: unless-stopped
+    command: ["--transport", "sse", "--host", "0.0.0.0", "--port", "8009"]
+    ports:
+      - "8009:8009"
+    environment:
+      - AGENT_PROFILE_PATH=/app/agent_profile.example.json
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./agent_profile.example.json:/app/agent_profile.example.json:ro
