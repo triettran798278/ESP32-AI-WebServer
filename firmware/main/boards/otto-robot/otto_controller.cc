@@ -1,0 +1,491 @@
+/*
+    Otto - MCPversion
+*/
+
+#include <cJSON.h>
+#include <esp_log.h>
+
+#include <cstring>
+
+#include "application.h"
+#include "board.h"
+#include "config.h"
+#include "mcp_server.h"
+#include "otto_movements.h"
+#include "sdkconfig.h"
+#include "settings.h"
+
+#define TAG "OttoController"
+
+class OttoController {
+private:
+    Otto otto_;
+    TaskHandle_t action_task_handle_ = nullptr;
+    QueueHandle_t action_queue_;
+    bool has_hands_ = false;
+    bool is_action_in_progress_ = false;
+
+    struct OttoActionParams {
+        int action_type;
+        int steps;
+        int speed;
+        int direction;
+        int amount;
+    };
+
+    enum ActionType {
+        ACTION_WALK = 1,
+        ACTION_TURN = 2,
+        ACTION_JUMP = 3,
+        ACTION_SWING = 4,
+        ACTION_MOONWALK = 5,
+        ACTION_BEND = 6,
+        ACTION_SHAKE_LEG = 7,
+        ACTION_UPDOWN = 8,
+        ACTION_TIPTOE_SWING = 9,
+        ACTION_JITTER = 10,
+        ACTION_ASCENDING_TURN = 11,
+        ACTION_CRUSAITO = 12,
+        ACTION_FLAPPING = 13,
+        ACTION_HANDS_UP = 14,
+        ACTION_HANDS_DOWN = 15,
+        ACTION_HAND_WAVE = 16,
+        ACTION_HOME = 17
+    };
+
+    static void ActionTask(void* arg) {
+        OttoController* controller = static_cast<OttoController*>(arg);
+        OttoActionParams params;
+        controller->otto_.AttachServos();
+
+        while (true) {
+            if (xQueueReceive(controller->action_queue_, &params, pdMS_TO_TICKS(1000)) == pdTRUE) {
+                ESP_LOGI(TAG, ": %d", params.action_type);
+                controller->is_action_in_progress_ = true;
+
+                switch (params.action_type) {
+                    case ACTION_WALK:
+                        controller->otto_.Walk(params.steps, params.speed, params.direction,
+                                               params.amount);
+                        break;
+                    case ACTION_TURN:
+                        controller->otto_.Turn(params.steps, params.speed, params.direction,
+                                               params.amount);
+                        break;
+                    case ACTION_JUMP:
+                        controller->otto_.Jump(params.steps, params.speed);
+                        break;
+                    case ACTION_SWING:
+                        controller->otto_.Swing(params.steps, params.speed, params.amount);
+                        break;
+                    case ACTION_MOONWALK:
+                        controller->otto_.Moonwalker(params.steps, params.speed, params.amount,
+                                                     params.direction);
+                        break;
+                    case ACTION_BEND:
+                        controller->otto_.Bend(params.steps, params.speed, params.direction);
+                        break;
+                    case ACTION_SHAKE_LEG:
+                        controller->otto_.ShakeLeg(params.steps, params.speed, params.direction);
+                        break;
+                    case ACTION_UPDOWN:
+                        controller->otto_.UpDown(params.steps, params.speed, params.amount);
+                        break;
+                    case ACTION_TIPTOE_SWING:
+                        controller->otto_.TiptoeSwing(params.steps, params.speed, params.amount);
+                        break;
+                    case ACTION_JITTER:
+                        controller->otto_.Jitter(params.steps, params.speed, params.amount);
+                        break;
+                    case ACTION_ASCENDING_TURN:
+                        controller->otto_.AscendingTurn(params.steps, params.speed, params.amount);
+                        break;
+                    case ACTION_CRUSAITO:
+                        controller->otto_.Crusaito(params.steps, params.speed, params.amount,
+                                                   params.direction);
+                        break;
+                    case ACTION_FLAPPING:
+                        controller->otto_.Flapping(params.steps, params.speed, params.amount,
+                                                   params.direction);
+                        break;
+                    case ACTION_HANDS_UP:
+                        if (controller->has_hands_) {
+                            controller->otto_.HandsUp(params.speed, params.direction);
+                        }
+                        break;
+                    case ACTION_HANDS_DOWN:
+                        if (controller->has_hands_) {
+                            controller->otto_.HandsDown(params.speed, params.direction);
+                        }
+                        break;
+                    case ACTION_HAND_WAVE:
+                        if (controller->has_hands_) {
+                            controller->otto_.HandWave(params.speed, params.direction);
+                        }
+                        break;
+                    case ACTION_HOME:
+                        controller->otto_.Home(params.direction == 1);
+                        break;
+                }
+                if (params.action_type != ACTION_HOME) {
+                    controller->otto_.Home(params.action_type < ACTION_HANDS_UP);
+                }
+                controller->is_action_in_progress_ = false;
+                vTaskDelay(pdMS_TO_TICKS(20));
+            }
+        }
+    }
+
+    void StartActionTaskIfNeeded() {
+        if (action_task_handle_ == nullptr) {
+            xTaskCreate(ActionTask, "otto_action", 1024 * 3, this, configMAX_PRIORITIES - 1,
+                        &action_task_handle_);
+        }
+    }
+
+    void QueueAction(int action_type, int steps, int speed, int direction, int amount) {
+        // check
+        if ((action_type >= ACTION_HANDS_UP && action_type <= ACTION_HAND_WAVE) && !has_hands_) {
+            ESP_LOGW(TAG, ", config");
+            return;
+        }
+
+        ESP_LOGI(TAG, ": type=%d, =%d, =%d, =%d, =%d", action_type, steps,
+                 speed, direction, amount);
+
+        OttoActionParams params = {action_type, steps, speed, direction, amount};
+        xQueueSend(action_queue_, &params, portMAX_DELAY);
+        StartActionTaskIfNeeded();
+    }
+
+    void LoadTrimsFromNVS() {
+        Settings settings("otto_trims", false);
+
+        int left_leg = settings.GetInt("left_leg", 0);
+        int right_leg = settings.GetInt("right_leg", 0);
+        int left_foot = settings.GetInt("left_foot", 0);
+        int right_foot = settings.GetInt("right_foot", 0);
+        int left_hand = settings.GetInt("left_hand", 0);
+        int right_hand = settings.GetInt("right_hand", 0);
+
+        ESP_LOGI(TAG, "NVSset: =%d, =%d, =%d, =%d, =%d, =%d",
+                 left_leg, right_leg, left_foot, right_foot, left_hand, right_hand);
+
+        otto_.SetTrims(left_leg, right_leg, left_foot, right_foot, left_hand, right_hand);
+    }
+
+public:
+    OttoController() {
+        otto_.Init(LEFT_LEG_PIN, RIGHT_LEG_PIN, LEFT_FOOT_PIN, RIGHT_FOOT_PIN, LEFT_HAND_PIN,
+                   RIGHT_HAND_PIN);
+
+        has_hands_ = (LEFT_HAND_PIN != -1 && RIGHT_HAND_PIN != -1);
+        ESP_LOGI(TAG, "Ottoinitialize%s", has_hands_ ? "" : "");
+
+        LoadTrimsFromNVS();
+
+        action_queue_ = xQueueCreate(10, sizeof(OttoActionParams));
+
+        QueueAction(ACTION_HOME, 1, 1000, 1, 0);  // direction=1
+
+        RegisterMcpTools();
+    }
+
+    void RegisterMcpTools() {
+        auto& mcp_server = McpServer::GetInstance();
+
+        ESP_LOGI(TAG, "startMCPtool...");
+
+        mcp_server.AddTool("self.otto.walk_forward",
+                           ". steps: (1-100); speed: (500-1500, ); "
+                           "direction: (-1=, 1=); arm_swing: (0-170)",
+                           PropertyList({Property("steps", kPropertyTypeInteger, 3, 1, 100),
+                                         Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                                         Property("arm_swing", kPropertyTypeInteger, 50, 0, 170),
+                                         Property("direction", kPropertyTypeInteger, 1, -1, 1)}),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               int steps = properties["steps"].value<int>();
+                               int speed = properties["speed"].value<int>();
+                               int arm_swing = properties["arm_swing"].value<int>();
+                               int direction = properties["direction"].value<int>();
+                               QueueAction(ACTION_WALK, steps, speed, direction, arm_swing);
+                               return true;
+                           });
+
+        mcp_server.AddTool("self.otto.turn_left",
+                           ". steps: (1-100); speed: (500-1500, ); "
+                           "direction: (1=, -1=); arm_swing: (0-170)",
+                           PropertyList({Property("steps", kPropertyTypeInteger, 3, 1, 100),
+                                         Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                                         Property("arm_swing", kPropertyTypeInteger, 50, 0, 170),
+                                         Property("direction", kPropertyTypeInteger, 1, -1, 1)}),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               int steps = properties["steps"].value<int>();
+                               int speed = properties["speed"].value<int>();
+                               int arm_swing = properties["arm_swing"].value<int>();
+                               int direction = properties["direction"].value<int>();
+                               QueueAction(ACTION_TURN, steps, speed, direction, arm_swing);
+                               return true;
+                           });
+
+        mcp_server.AddTool("self.otto.jump",
+                           ". steps: (1-100); speed: (500-1500, )",
+                           PropertyList({Property("steps", kPropertyTypeInteger, 1, 1, 100),
+                                         Property("speed", kPropertyTypeInteger, 1000, 500, 1500)}),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               int steps = properties["steps"].value<int>();
+                               int speed = properties["speed"].value<int>();
+                               QueueAction(ACTION_JUMP, steps, speed, 0, 0);
+                               return true;
+                           });
+
+        mcp_server.AddTool("self.otto.swing",
+                           "Sway left and right. steps: (1-100); speed: "
+                           "(500-1500, ); amount: (0-170)",
+                           PropertyList({Property("steps", kPropertyTypeInteger, 3, 1, 100),
+                                         Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                                         Property("amount", kPropertyTypeInteger, 30, 0, 170)}),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               int steps = properties["steps"].value<int>();
+                               int speed = properties["speed"].value<int>();
+                               int amount = properties["amount"].value<int>();
+                               QueueAction(ACTION_SWING, steps, speed, 0, amount);
+                               return true;
+                           });
+
+        mcp_server.AddTool("self.otto.moonwalk",
+                           ". steps: (1-100); speed: (500-1500, ); "
+                           "direction: (1=, -1=); amount: (0-170)",
+                           PropertyList({Property("steps", kPropertyTypeInteger, 3, 1, 100),
+                                         Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                                         Property("direction", kPropertyTypeInteger, 1, -1, 1),
+                                         Property("amount", kPropertyTypeInteger, 25, 0, 170)}),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               int steps = properties["steps"].value<int>();
+                               int speed = properties["speed"].value<int>();
+                               int direction = properties["direction"].value<int>();
+                               int amount = properties["amount"].value<int>();
+                               QueueAction(ACTION_MOONWALK, steps, speed, direction, amount);
+                               return true;
+                           });
+
+        mcp_server.AddTool("self.otto.bend",
+                           ". steps: (1-100); speed: "
+                           "(500-1500, ); direction: (1=, -1=)",
+                           PropertyList({Property("steps", kPropertyTypeInteger, 1, 1, 100),
+                                         Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                                         Property("direction", kPropertyTypeInteger, 1, -1, 1)}),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               int steps = properties["steps"].value<int>();
+                               int speed = properties["speed"].value<int>();
+                               int direction = properties["direction"].value<int>();
+                               QueueAction(ACTION_BEND, steps, speed, direction, 0);
+                               return true;
+                           });
+
+        mcp_server.AddTool("self.otto.shake_leg",
+                           ". steps: (1-100); speed: (500-1500, ); "
+                           "direction: (1=, -1=)",
+                           PropertyList({Property("steps", kPropertyTypeInteger, 1, 1, 100),
+                                         Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                                         Property("direction", kPropertyTypeInteger, 1, -1, 1)}),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               int steps = properties["steps"].value<int>();
+                               int speed = properties["speed"].value<int>();
+                               int direction = properties["direction"].value<int>();
+                               QueueAction(ACTION_SHAKE_LEG, steps, speed, direction, 0);
+                               return true;
+                           });
+
+        mcp_server.AddTool("self.otto.updown",
+                           ". steps: (1-100); speed: "
+                           "(500-1500, ); amount: (0-170)",
+                           PropertyList({Property("steps", kPropertyTypeInteger, 3, 1, 100),
+                                         Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                                         Property("amount", kPropertyTypeInteger, 20, 0, 170)}),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               int steps = properties["steps"].value<int>();
+                               int speed = properties["speed"].value<int>();
+                               int amount = properties["amount"].value<int>();
+                               QueueAction(ACTION_UPDOWN, steps, speed, 0, amount);
+                               return true;
+                           });
+
+        //  () 
+        if (has_hands_) {
+            mcp_server.AddTool(
+                "self.otto.hands_up",
+                ". speed: (500-1500, ); direction: (1=, "
+                "-1=, 0=)",
+                PropertyList({Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                              Property("direction", kPropertyTypeInteger, 1, -1, 1)}),
+                [this](const PropertyList& properties) -> ReturnValue {
+                    int speed = properties["speed"].value<int>();
+                    int direction = properties["direction"].value<int>();
+                    QueueAction(ACTION_HANDS_UP, 1, speed, direction, 0);
+                    return true;
+                });
+
+            mcp_server.AddTool(
+                "self.otto.hands_down",
+                ". speed: (500-1500, ); direction: (1=, "
+                "-1=, 0=)",
+                PropertyList({Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                              Property("direction", kPropertyTypeInteger, 1, -1, 1)}),
+                [this](const PropertyList& properties) -> ReturnValue {
+                    int speed = properties["speed"].value<int>();
+                    int direction = properties["direction"].value<int>();
+                    QueueAction(ACTION_HANDS_DOWN, 1, speed, direction, 0);
+                    return true;
+                });
+
+            mcp_server.AddTool(
+                "self.otto.hand_wave",
+                ". speed: (500-1500, ); direction: (1=, "
+                "-1=, 0=)",
+                PropertyList({Property("speed", kPropertyTypeInteger, 1000, 500, 1500),
+                              Property("direction", kPropertyTypeInteger, 1, -1, 1)}),
+                [this](const PropertyList& properties) -> ReturnValue {
+                    int speed = properties["speed"].value<int>();
+                    int direction = properties["direction"].value<int>();
+                    QueueAction(ACTION_HAND_WAVE, 1, speed, direction, 0);
+                    return true;
+                });
+        }
+
+        // tool
+        mcp_server.AddTool("self.otto.stop", "stop", PropertyList(),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               if (action_task_handle_ != nullptr) {
+                                   vTaskDelete(action_task_handle_);
+                                   action_task_handle_ = nullptr;
+                               }
+                               is_action_in_progress_ = false;
+                               xQueueReset(action_queue_);
+
+                               QueueAction(ACTION_HOME, 1, 1000, 1, 0);
+                               return true;
+                           });
+
+        mcp_server.AddTool(
+            "self.otto.set_trim",
+            ". setparamOtto, set. "
+            "servo_type: type(left_leg/right_leg/left_foot/right_foot/left_hand/right_hand); "
+            "trim_value: (-5050)",
+            PropertyList({Property("servo_type", kPropertyTypeString, "left_leg"),
+                          Property("trim_value", kPropertyTypeInteger, 0, -50, 50)}),
+            [this](const PropertyList& properties) -> ReturnValue {
+                std::string servo_type = properties["servo_type"].value<std::string>();
+                int trim_value = properties["trim_value"].value<int>();
+
+                ESP_LOGI(TAG, "set: %s = %d", servo_type.c_str(), trim_value);
+
+                // get
+                Settings settings("otto_trims", true);
+                int left_leg = settings.GetInt("left_leg", 0);
+                int right_leg = settings.GetInt("right_leg", 0);
+                int left_foot = settings.GetInt("left_foot", 0);
+                int right_foot = settings.GetInt("right_foot", 0);
+                int left_hand = settings.GetInt("left_hand", 0);
+                int right_hand = settings.GetInt("right_hand", 0);
+
+                // update
+                if (servo_type == "left_leg") {
+                    left_leg = trim_value;
+                    settings.SetInt("left_leg", left_leg);
+                } else if (servo_type == "right_leg") {
+                    right_leg = trim_value;
+                    settings.SetInt("right_leg", right_leg);
+                } else if (servo_type == "left_foot") {
+                    left_foot = trim_value;
+                    settings.SetInt("left_foot", left_foot);
+                } else if (servo_type == "right_foot") {
+                    right_foot = trim_value;
+                    settings.SetInt("right_foot", right_foot);
+                } else if (servo_type == "left_hand") {
+                    if (!has_hands_) {
+                        return "Error: config";
+                    }
+                    left_hand = trim_value;
+                    settings.SetInt("left_hand", left_hand);
+                } else if (servo_type == "right_hand") {
+                    if (!has_hands_) {
+                        return "Error: config";
+                    }
+                    right_hand = trim_value;
+                    settings.SetInt("right_hand", right_hand);
+                } else {
+                    return "Error: type, use: left_leg, right_leg, left_foot, "
+                           "right_foot, left_hand, right_hand";
+                }
+
+                otto_.SetTrims(left_leg, right_leg, left_foot, right_foot, left_hand, right_hand);
+
+                QueueAction(ACTION_JUMP, 1, 500, 0, 0);
+
+                return " " + servo_type + " set " + std::to_string(trim_value) +
+                       " , ";
+            });
+
+        mcp_server.AddTool("self.otto.get_trims", "getset", PropertyList(),
+                           [this](const PropertyList& properties) -> ReturnValue {
+                               Settings settings("otto_trims", false);
+
+                               int left_leg = settings.GetInt("left_leg", 0);
+                               int right_leg = settings.GetInt("right_leg", 0);
+                               int left_foot = settings.GetInt("left_foot", 0);
+                               int right_foot = settings.GetInt("right_foot", 0);
+                               int left_hand = settings.GetInt("left_hand", 0);
+                               int right_hand = settings.GetInt("right_hand", 0);
+
+                               std::string result =
+                                   "{\"left_leg\":" + std::to_string(left_leg) +
+                                   ",\"right_leg\":" + std::to_string(right_leg) +
+                                   ",\"left_foot\":" + std::to_string(left_foot) +
+                                   ",\"right_foot\":" + std::to_string(right_foot) +
+                                   ",\"left_hand\":" + std::to_string(left_hand) +
+                                   ",\"right_hand\":" + std::to_string(right_hand) + "}";
+
+                               ESP_LOGI(TAG, "getset: %s", result.c_str());
+                               return result;
+                           });
+
+        mcp_server.AddTool("self.otto.get_status", "getstatus, return moving  idle",
+                           PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
+                               return is_action_in_progress_ ? "moving" : "idle";
+                           });
+
+        mcp_server.AddTool("self.battery.get_level", "getbatterychargingstatus", PropertyList(),
+                           [](const PropertyList& properties) -> ReturnValue {
+                               auto& board = Board::GetInstance();
+                               int level = 0;
+                               bool charging = false;
+                               bool discharging = false;
+                               board.GetBatteryLevel(level, charging, discharging);
+
+                               std::string status =
+                                   "{\"level\":" + std::to_string(level) +
+                                   ",\"charging\":" + (charging ? "true" : "false") + "}";
+                               return status;
+                           });
+
+        ESP_LOGI(TAG, "MCPtool");
+    }
+
+    ~OttoController() {
+        if (action_task_handle_ != nullptr) {
+            vTaskDelete(action_task_handle_);
+            action_task_handle_ = nullptr;
+        }
+        vQueueDelete(action_queue_);
+    }
+};
+
+static OttoController* g_otto_controller = nullptr;
+
+void InitializeOttoController() {
+    if (g_otto_controller == nullptr) {
+        g_otto_controller = new OttoController();
+        ESP_LOGI(TAG, "OttoinitializeMCPtool");
+    }
+}

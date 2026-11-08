@@ -1,0 +1,71 @@
+services:
+  platform-bridge:
+    image: iot_assignment-tools:latest
+    container_name: platform-bridge
+    restart: unless-stopped
+    command: ["uvicorn", "platform-bridge.app:app", "--host", "0.0.0.0", "--port", "8005"]
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./platform-bridge:/app/platform-bridge
+      - ./deploy/platform-data:/app/data
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - WHISPER_URL=http://faster-whisper:8000/v1/audio/transcriptions
+      - PIPER_URL=http://piper-tts:10200/v1/audio/speech
+      - LLM_GATEWAY_URL=http://mcp-gateway:8008/v1
+      - BRIDGE_SECRET=sk-xiaozhi-local-secret
+      - WS_PUBLIC_PORT=8002
+      - HOST_IP=192.168.1.7
+      - THINGSBOARD_HOST=http://172.18.0.1:8080
+      - THINGSBOARD_API_KEY=tb_963y36TYm3j5OwJjAbPiZIifTCHTMB0WBZVstE9DVa9pjN4dB-jK_7gfTAQtm_PczbuaCkqq-e-AuwXNW-kIyQ
+    networks:
+      - default
+
+  thingsboard-mcp:
+    image: iot_assignment-tools:latest
+    container_name: thingsboard-mcp
+    restart: unless-stopped
+    command: ["python", "-m", "src.server", "--transport", "sse", "--host", "0.0.0.0", "--port", "8009"]
+    ports:
+      - "8009:8009"
+    volumes:
+      - ./thingsboard-mcp:/app
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      - TB_HOST=http://172.18.0.1:8080
+      - TB_API_KEY=tb_963y36TYm3j5OwJjAbPiZIifTCHTMB0WBZVstE9DVa9pjN4dB-jK_7gfTAQtm_PczbuaCkqq-e-AuwXNW-kIyQ
+    networks:
+      - default
+
+  xiaozhi-server:
+    image: iot-xiaozhi-baseline:local
+    container_name: xiaozhi-server
+    restart: unless-stopped
+    command: ["python", "app.py"]
+    ports:
+      - "8002:8002"
+      - "8003:8003"
+    volumes:
+      - ./deploy/xiaozhi-data:/app/data
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - WHISPER_URL=http://faster-whisper:8000/v1/audio/transcriptions
+      - PIPER_URL=http://piper-tts:10200/v1/audio/speech
+      - LLM_URL=http://mcp-gateway:8008/v1
+      - HOST_LAN_IP=192.168.1.7
+      - THINGSBOARD_URL=http://172.18.0.1:8080
+    depends_on:
+      - platform-bridge
+      - thingsboard-mcp
+    networks:
+      - default
+
+networks:
+  default:
+    name: iot_assignment_default
+    external: true

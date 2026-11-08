@@ -1,0 +1,20 @@
+{
+  "id": "agent_thingsboard_smart_home",
+  "name": "Smart Home & IoT Assistant",
+  "role": "IoT Supervisor",
+  "status": "online",
+  "integrations": {
+    "thingsboard": {
+      "host": "http://localhost:8080",
+      "api_key": "tb_963y36TYm3j5OwJjAbPiZIifTCHTMB0WBZVstE9DVa9pjN4dB-jK_7gfTAQtm_PczbuaCkqq-e-AuwXNW-kIyQ",
+      "timeout_seconds": 10
+    }
+  },
+  "config": {
+    "language": "vi",
+    "llmModel": "qwen2.5:3b-instruct",
+    "mcpEndpoints": [
+      "thingsboard-tools"
+    ]
+  }
+}

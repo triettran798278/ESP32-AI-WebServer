@@ -1,0 +1,11 @@
+{
+    "target": "esp32s3",
+    "builds": [{
+        "name": "yolo-uno",
+        "sdkconfig_append": [
+            "CONFIG_LANGUAGE_EN_US=y",
+            "CONFIG_SR_WN_WN9_HIESP=y",
+            "CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=n"
+        ]
+    }]
+}
