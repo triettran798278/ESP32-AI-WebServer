@@ -1,5 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
+cd /d "%~dp0.."
 
 set "PIPER_DIR=piper-models"
 set "WHISPER_DIR=whisper-models"

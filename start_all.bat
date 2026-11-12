@@ -28,9 +28,14 @@ if errorlevel 1 (
 echo [OK] 5 Container da online: Ollama, Faster-Whisper, Piper-TTS, MCP-Gateway 8008, Gateway 8080.
 echo.
 
-echo [3/3] Kiem tra Model va chay Kiem thu toan trinh...
-call init_models.bat
-python test_pipeline.py
+echo [3/3] Kiem tra va tai Model...
+call "%~dp0scripts\init_models.bat"
+if errorlevel 1 (
+    echo [ERROR] Khong the kiem tra/tai model!
+    pause
+    exit /b 1
+)
+echo [OK] Tat ca Model va Docker services da san sang!
 
 echo.
 pause

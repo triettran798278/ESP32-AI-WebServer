@@ -126,19 +126,7 @@ docker ps
 ```
 Cần đảm bảo 5 containers đều ở trạng thái `Up`: `gateway`, `mcp-gateway`, `ollama`, `faster-whisper`, `piper-tts`.
 
-### 3. Chạy các bộ kịch bản kiểm thử
-- **Kiểm thử phân luồng MCP (Direct LLM vs Tool Calling):**
-  ```powershell
-  python test_mcp_flow.py
-  ```
-- **Kiểm thử độc lập không cần Docker (Self-Test mode với Mock Ollama):**
-  ```powershell
-  python test_mcp_flow.py --self-test
-  ```
-- **Kiểm thử toàn trình 4 động cơ AI (LLM -> TTS -> STT -> Gateway):**
-  ```powershell
-  python test_pipeline.py
-  ```
+### 3. Bật trợ lý giọng nói kiểm thử nhanh
 - **Bật trợ lý giọng nói Real-Time trực tiếp bằng micro laptop:**
   ```powershell
   python mic_test.py

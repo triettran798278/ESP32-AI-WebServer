@@ -112,7 +112,7 @@ mkdir -p ~/xiaozhi-backend
 cd ~/xiaozhi-backend
 ```
 
-Bạn có thể clone repo Git của bạn hoặc dùng `scp` để copy các thư mục (`faster-whisper`, `piper`, `gateway`, `docker-compose.yml`, `init_models.sh`) từ máy tính lên EC2:
+Bạn có thể clone repo Git của bạn hoặc dùng `scp` để copy các thư mục (`faster-whisper`, `piper`, `gateway`, `docker-compose.yml`, `scripts/init_models.sh`) từ máy tính lên EC2:
 
 ```bash
 # Trên máy tính cá nhân của bạn:
@@ -122,16 +122,13 @@ scp -i your-key.pem -r * ubuntu@<PUBLIC_IP_EC2>:~/xiaozhi-backend/
 Trên máy chủ EC2, cấp quyền thực thi và khởi chạy:
 ```bash
 cd ~/xiaozhi-backend
-chmod +x init_models.sh
+chmod +x scripts/init_models.sh
 
 # 1. Khởi chạy 4 container AI
 docker compose up -d --build
 
 # 2. Tải model tiếng Việt và Qwen LLM
-./init_models.sh
-
-# 3. Chạy test kiểm thử toàn trình
-python3 test_pipeline.py
+./scripts/init_models.sh
 ```
 
 ---

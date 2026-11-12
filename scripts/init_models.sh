@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+cd "$(dirname "$0")/.."
 
 PIPER_DIR="./piper-models"
 WHISPER_DIR="./whisper-models"
