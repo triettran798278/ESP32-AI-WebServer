@@ -1,10 +1,12 @@
-# XiaoZhi Full-Local AI Backend — Tài Liệu Bàn Giao Kỹ Thuật (Technical Handoff)
+# Bàn giao kỹ thuật XiaoZhi Full-Local AI Backend
+
+> **Tài liệu lưu trữ.** Các lệnh và cấu hình dưới đây mô tả mô hình AI Gateway cũ trên cổng 8080. Để triển khai hệ thống hiện tại, xem [hướng dẫn triển khai cục bộ](../reproduce-deployment.md).
 
 *Tài liệu này tổng hợp toàn bộ hiện trạng kiến trúc, mã nguồn, thông số vận hành và hướng dẫn kết nối của cụm Backend AI Full-Local phục vụ thiết bị XiaoZhi ESP32.*
 
 ---
 
-## 1. Mục Tiêu & Tổng Quan Hệ Thống
+## Mục tiêu và tổng quan hệ thống
 
 Dự án cung cấp một cụm backend AI chạy hoàn toàn nội bộ (Full-Local 100%), không phụ thuộc vào bất kỳ dịch vụ đám mây bên ngoài nào. Hệ thống xử lý trọn vẹn luồng đàm thoại thông minh cho thiết bị **XiaoZhi ESP32**:
 1. **STT (Speech-to-Text)**: Nhận giọng nói tiếng Việt từ microphone thiết bị qua Faster-Whisper.
@@ -14,9 +16,9 @@ Dự án cung cấp một cụm backend AI chạy hoàn toàn nội bộ (Full-L
 
 ---
 
-## 2. Kiến Trúc Cụm 5 Containers (Docker Compose)
+## Kiến trúc Docker Compose
 
-Toàn bộ hệ thống được container hóa và điều phối qua [`docker-compose.yml`](file:///docker-compose.yml):
+Toàn bộ hệ thống được container hóa và điều phối qua [`docker-compose.yml`](../../docker-compose.yml):
 
 | Service | Container Name | Port Mapping | Môi trường / Phần cứng | Nhiệm vụ chính |
 | :--- | :--- | :--- | :--- | :--- |
@@ -26,7 +28,7 @@ Toàn bộ hệ thống được container hóa và điều phối qua [`docker-
 | **`faster-whisper`** | `faster-whisper` | `8000:8000` | CPU (AVX-512, int8) | Nhận diện tiếng Việt model `small` kèm bộ lọc VAD |
 | **`piper-tts`** | `piper-tts` | `10200:10200` | CPU (ONNX Runtime) | Sinh giọng đọc `vi_VN-vais1000-medium` (22050Hz) |
 
-### Sơ Đồ Luồng Dữ Liệu (Data Flow)
+### Luồng dữ liệu
 
 ```
 [ XiaoZhi ESP32 ] / [ mic_test.py ] / [ Client Apps ]
@@ -61,9 +63,9 @@ Toàn bộ hệ thống được container hóa và điều phối qua [`docker-
 
 ---
 
-## 3. Chi Tiết Phân Hệ MCP Agent Gateway (`services/`)
+## Các thành phần MCP Agent Gateway
 
-### A. MCP Server ([`services/mcp_server.py`](file:///services/mcp_server.py))
+### MCP Server ([`services/mcp_server.py`](../../services/mcp_server.py))
 - Xây dựng bằng thư viện `mcp` (FastMCP), giao tiếp qua cơ chế `stdio` tiêu chuẩn (không tốn cổng mạng, độ trễ IPC cực thấp).
 - Tích hợp **ThingsBoard Auto-Discovery Connector** kết nối tới `https://app.coreiot.io`, tự động khám phá toàn bộ thiết bị và telemetry keys trên tài khoản mà không cần khai báo thủ công:
   1. `get_current_time()`: Lấy ngày, giờ, thứ trong tuần theo giờ Việt Nam chuẩn (GMT+7).
@@ -73,18 +75,18 @@ Toàn bộ hệ thống được container hóa và điều phối qua [`docker-
   5. `get_dht20_environment()`: Đọc nhanh nhiệt độ và độ ẩm từ cảm biến `DHT20`.
   6. `device_control(device_name: str, action: str)`: Điều khiển bật/tắt thiết bị smarthome và đồng bộ Client Attributes lên ThingsBoard qua `COREIOT_DEVICE_TOKEN`.
 
-### B. All-in-One Multi-Agent & CoreIoT Web Console ([`services/console.html`](file:///services/console.html))
+### All-in-One Multi-Agent & CoreIoT Web Console ([`services/console.html`](../../services/console.html))
 - Truy cập trực tiếp tại **`http://localhost:8080/console`** (hoặc `http://localhost:8080/`).
 - Bao gồm 3 phân khu chính trên cùng 1 trang:
   1. **Quản lý Đa Agent (Multi-Agent Console)**: Tạo, sửa, xóa nhiều nhân cách Agent (cấu hình riêng System Prompt, Model, Temperature, bật/tắt từng MCP Tool) và chọn Agent mặc định cho mạch XiaoZhi ESP32.
   2. **CoreIoT / ThingsBoard Live Dashboard & Auto-Discovery**: Tự động quét và hiển thị thẻ số liệu thời gian thực của mọi thiết bị trên `app.coreiot.io` (`DHT20`, `LAB1_2414100`), bảng nút gạt điều khiển đồng bộ Client Attributes và nhúng trực tiếp Dashboard gốc của ThingsBoard qua Iframe.
   3. **Buồng Thử Nghiệm Giọng Nói & Chat + MCP Tool Inspector**: Tích hợp thu âm giọng nói trên trình duyệt (`Faster-Whisper` STT) -> gọi Agent + MCP Tools -> phát giọng đọc tiếng Việt (`Piper` TTS) kèm nhật ký chi tiết các lệnh gọi hàm MCP và độ trễ từng chặng.
 
-### C. XiaoZhi Cloud MCP Pipe ([`services/mcp_pipe.py`](file:///services/mcp_pipe.py))
+### XiaoZhi Cloud MCP Pipe ([`services/mcp_pipe.py`](../../services/mcp_pipe.py))
 - Cầu nối WebSocket `<->` stdio cho phép gắn toàn bộ cụm MCP Tools của ThingsBoard trực tiếp vào Agent trên trang quản trị đám mây `https://xiaozhi.me/console/agents` thông qua `MCP_ENDPOINT` (`wss://api.xiaozhi.me/mcp/?token=...`).
 - Có thể chạy độc lập (`python services/mcp_pipe.py "wss://..."`) hoặc tự động chạy ngầm trong container `mcp-gateway` khi khai báo biến môi trường `MCP_ENDPOINT`.
 
-### C. MCP Agent Gateway ([`services/mcp_gateway.py`](file:///services/mcp_gateway.py))
+### MCP Agent Gateway ([`services/mcp_gateway.py`](../../services/mcp_gateway.py))
 - Viết bằng FastAPI + `httpx`, hoạt động như một MCP Client:
   - Khi khởi động: Tự động kết nối tới `mcp_server.py` qua stdio, khám phá tools và chuyển đổi (convert) JSON Schema sang format `tools` chuẩn của OpenAI.
   - Xử lý **Turn 1**: Gửi prompt kèm định nghĩa tools tới Ollama `POST /v1/chat/completions`.
@@ -96,7 +98,7 @@ Toàn bộ hệ thống được container hóa và điều phối qua [`docker-
 
 ---
 
-## 4. Kết Quả Kiểm Thử Thực Tế & Đo Đạc Hiệu Năng (Benchmarks)
+## Kết quả kiểm thử và đo hiệu năng
 
 Hệ thống đã được kiểm thử trực tiếp trên phần cứng máy chủ cục bộ (NVIDIA RTX GPU + CPU đa luồng):
 
@@ -111,22 +113,22 @@ Hệ thống đã được kiểm thử trực tiếp trên phần cứng máy c
 
 ---
 
-## 5. Hướng Dẫn Vận Hành & Lệnh Kiểm Thử
+## Vận hành và kiểm thử
 
-### 1. Khởi động toàn bộ hệ thống
-- **Cách 1-Click (Windows):** Chạy file [`start_all.bat`](file:///start_all.bat).
+### Khởi động toàn bộ hệ thống
+- **Cách 1-Click (Windows):** Chạy file [`start_all.bat`](../../start_all.bat).
 - **Cách lệnh Docker:**
   ```powershell
   docker compose up -d --build
   ```
 
-### 2. Kiểm tra trạng thái các container
+### Kiểm tra trạng thái các container
 ```powershell
 docker ps
 ```
 Cần đảm bảo 5 containers đều ở trạng thái `Up`: `gateway`, `mcp-gateway`, `ollama`, `faster-whisper`, `piper-tts`.
 
-### 3. Bật trợ lý giọng nói kiểm thử nhanh
+### Bật trợ lý giọng nói kiểm thử nhanh
 - **Bật trợ lý giọng nói Real-Time trực tiếp bằng micro laptop:**
   ```powershell
   python mic_test.py
@@ -135,7 +137,7 @@ Cần đảm bảo 5 containers đều ở trạng thái `Up`: `gateway`, `mcp-g
 
 ---
 
-## 6. Hướng Dẫn Tích Hợp Thiết Bị XiaoZhi ESP32
+## Tích hợp thiết bị XiaoZhi ESP32
 
 ### Thông số kết nối mạng
 - **IP Máy chủ AI trong mạng LAN:** `10.127.27.65` *(Kiểm tra lại bằng `ipconfig` nếu đổi mạng)*
@@ -178,9 +180,9 @@ TTS:
 
 ---
 
-## 7. Hướng Dẫn Bổ Sung Thêm MCP Tools Mới
+## Thêm MCP tools
 
-Để thêm chức năng mới cho XiaoZhi, chỉ cần khai báo thêm hàm trong [`services/mcp_server.py`](file:///services/mcp_server.py):
+Để thêm chức năng mới cho XiaoZhi, chỉ cần khai báo thêm hàm trong [`services/mcp_server.py`](../../services/mcp_server.py):
 
 ```python
 @mcp.tool()
@@ -198,7 +200,7 @@ docker compose up -d --build mcp-gateway
 
 ---
 
-## 8. Ghi Chú Kỹ Thuật & Khuyến Nghị Vận Hành
+## Ghi chú vận hành
 
 1. **Keep-Alive của Ollama**: Đã cấu hình `OLLAMA_KEEP_ALIVE=24h` để tránh việc GPU dọn giải phóng bộ nhớ giữa các lần đàm thoại, đảm bảo request đầu tiên không bị delay do nạp lại model.
 2. **Khả năng của Model 3B**: Model `qwen2.5:3b-instruct` hoạt động tối ưu nhất khi số lượng tool từ 3-5 tools với mô tả tham số rõ ràng. Nếu bổ sung quá nhiều tool phức tạp, nên cân nhắc nâng lên `qwen2.5:7b-instruct` (nếu GPU có từ 8GB VRAM trở lên).

@@ -16,7 +16,7 @@ class TTSProvider(TTSProviderBase):
         self.prompt_text = config.get('ref_text') if config.get('ref_text') else config.get("prompt_text")
         self.prompt_lang = config.get("prompt_lang", "zh")
 
-        # 处理空字符串的情况
+        # Handle empty string values
         top_k = config.get("top_k", "5")
         top_p = config.get("top_p", "1")
         temperature = config.get("temperature", "1")

@@ -25,14 +25,14 @@ class ASRProviderBase(ABC):
     def __init__(self):
         pass
 
-    # 打开音频通道
+    # Open audio channels
     async def open_audio_channels(self, conn):
         conn.asr_priority_thread = threading.Thread(
             target=self.asr_text_priority_thread, args=(conn,), daemon=True
         )
         conn.asr_priority_thread.start()
 
-    # 有序处理ASR音频
+    # Process ASR audio sequentially
     def asr_text_priority_thread(self, conn):
         while not conn.stop_event.is_set():
             try:
@@ -50,13 +50,13 @@ class ASRProviderBase(ABC):
                 )
                 continue
 
-    # 接收音频
+    # Receive audio
     async def receive_audio(self, conn, audio, audio_have_voice):
         if conn.client_listen_mode == "manual":
-            # 手动模式：缓存音频用于ASR识别
+            # Manual mode: buffer audio for ASR recognition
             conn.asr_audio.append(audio)
         else:
-            # 自动/实时模式：使用VAD检测
+            # Auto/realtime mode: use VAD detection
             have_voice = audio_have_voice
 
             conn.asr_audio.append(audio)
@@ -64,7 +64,7 @@ class ASRProviderBase(ABC):
                 conn.asr_audio = conn.asr_audio[-10:]
                 return
 
-            # 自动模式下通过VAD检测到语音停止时触发识别
+            # In auto mode, trigger recognition when VAD detects voice stop
             if conn.client_voice_stop:
                 asr_audio_task = conn.asr_audio.copy()
                 conn.asr_audio.clear()
@@ -73,13 +73,13 @@ class ASRProviderBase(ABC):
                 if len(asr_audio_task) > 15:
                     await self.handle_voice_stop(conn, asr_audio_task)
 
-    # 处理语音停止
+    # Handle voice stop
     async def handle_voice_stop(self, conn, asr_audio_task: List[bytes]):
         """并行处理ASR和声纹识别"""
         try:
             total_start_time = time.monotonic()
 
-            # 准备音频数据
+            # Prepare audio data
             if conn.audio_format == "pcm":
                 pcm_data = asr_audio_task
             else:
@@ -87,17 +87,17 @@ class ASRProviderBase(ABC):
 
             combined_pcm_data = b"".join(pcm_data)
 
-            # 预先准备WAV数据
+            # Pre-build WAV data
             wav_data = None
             if conn.voiceprint_provider and combined_pcm_data:
                 wav_data = self._pcm_to_wav(combined_pcm_data)
 
-            # 定义ASR任务
+            # Define ASR task
             asr_task = self.speech_to_text(asr_audio_task, conn.session_id, conn.audio_format)
 
             if conn.voiceprint_provider and wav_data:
                 voiceprint_task = conn.voiceprint_provider.identify_speaker(wav_data, conn.session_id)
-                # 并发等待两个结果
+                # Wait concurrently for both results
                 asr_result, voiceprint_result = await asyncio.gather(
                     asr_task, voiceprint_task, return_exceptions=True
                 )
@@ -105,7 +105,7 @@ class ASRProviderBase(ABC):
                 asr_result = await asr_task
                 voiceprint_result = None
 
-            # 记录识别结果 - 检查是否为异常
+            # Record recognition results - check for exceptions
             if isinstance(asr_result, Exception):
                 logger.bind(tag=TAG).error(f"ASR识别失败: {asr_result}")
                 raw_text = ""
@@ -123,19 +123,19 @@ class ASRProviderBase(ABC):
             if speaker_name:
                 logger.bind(tag=TAG).info(f"识别说话人: {speaker_name}")
 
-            # 性能监控
+            # Performance monitoring
             total_time = time.monotonic() - total_start_time
             logger.bind(tag=TAG).debug(f"总处理耗时: {total_time:.3f}s")
 
-            # 检查文本长度
+            # Check text length
             text_len, _ = remove_punctuation_and_length(raw_text)
             self.stop_ws_connection()
 
             if text_len > 0:
-                # 构建包含说话人信息的JSON字符串
+                # Build JSON string with speaker info
                 enhanced_text = self._build_enhanced_text(raw_text, speaker_name)
 
-                # 使用自定义模块进行上报
+                # Report using custom module
                 await startToChat(conn, enhanced_text)
                 enqueue_asr_report(conn, enhanced_text, asr_audio_task)
                 
@@ -160,17 +160,17 @@ class ASRProviderBase(ABC):
             logger.bind(tag=TAG).warning("PCM数据为空，无法转换WAV")
             return b""
         
-        # 确保数据长度是偶数（16位音频）
+        # Ensure data length is even (16-bit audio)
         if len(pcm_data) % 2 != 0:
             pcm_data = pcm_data[:-1]
         
-        # 创建WAV文件头
+        # Create WAV header
         wav_buffer = io.BytesIO()
         try:
             with wave.open(wav_buffer, 'wb') as wav_file:
-                wav_file.setnchannels(1)      # 单声道
-                wav_file.setsampwidth(2)      # 16位
-                wav_file.setframerate(16000)  # 16kHz采样率
+                wav_file.setnchannels(1)      # Mono
+                wav_file.setsampwidth(2)      # 16-bit
+                wav_file.setframerate(16000)  # 16kHz sample rate
                 wav_file.writeframes(pcm_data)
             
             wav_buffer.seek(0)
@@ -212,7 +212,7 @@ class ASRProviderBase(ABC):
         try:
             decoder = opuslib_next.Decoder(16000, 1)
             pcm_data = []
-            buffer_size = 960  # 每次处理960个采样点 (60ms at 16kHz)
+            buffer_size = 960  # Process 960 samples per frame (60ms at 16kHz)
             
             for i, opus_packet in enumerate(opus_data):
                 try:

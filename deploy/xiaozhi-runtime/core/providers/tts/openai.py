@@ -20,7 +20,7 @@ class TTSProvider(TTSProviderBase):
         self.response_format = config.get("format", "wav")
         self.audio_file_type = config.get("format", "wav")
 
-        # 处理空字符串的情况
+        # Handle empty string case
         speed = config.get("speed", "1.0")
         self.speed = float(speed) if speed else 1.0
 

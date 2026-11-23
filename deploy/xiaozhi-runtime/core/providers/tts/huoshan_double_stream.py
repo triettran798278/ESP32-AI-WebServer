@@ -45,27 +45,27 @@ EVENT_Start_Connection = 1
 
 EVENT_FinishConnection = 2
 
-EVENT_ConnectionStarted = 50  # 成功建连
+EVENT_ConnectionStarted = 50  # Connection established
 
-EVENT_ConnectionFailed = 51  # 建连失败（可能是无法通过权限认证）
+EVENT_ConnectionFailed = 51  # Connection failed (possibly due to auth failure)
 
-EVENT_ConnectionFinished = 52  # 连接结束
+EVENT_ConnectionFinished = 52  # Connection finished
 
-# 上行Session事件
+# Upstream session events
 EVENT_StartSession = 100
 EVENT_CancelSession = 101
 EVENT_FinishSession = 102
-# 下行Session事件
+# Downstream session events
 EVENT_SessionStarted = 150
 EVENT_SessionCanceled = 151
 EVENT_SessionFinished = 152
 
 EVENT_SessionFailed = 153
 
-# 上行通用事件
+# Upstream common event
 EVENT_TaskRequest = 200
 
-# 下行TTS事件
+# Downstream TTS events
 EVENT_TTSSentenceStart = 350
 
 EVENT_TTSSentenceEnd = 351
@@ -114,7 +114,7 @@ class Optional:
         self.response_meta_json: str | None = None
         self.sequence = sequence
 
-    # 转成 byte 序列
+    # Convert to byte sequence
     def as_bytes(self) -> bytes:
         option_bytes = bytearray()
         if self.event != EVENT_NONE:
@@ -144,7 +144,7 @@ class TTSProvider(TTSProviderBase):
         super().__init__(config, delete_audio_file)
         self.ws = None
         self.interface_type = InterfaceType.DUAL_STREAM
-        self._monitor_task = None  # 监听任务引用
+        self._monitor_task = None  # Monitor task reference
         self.appId = config.get("appid")
         self.access_token = config.get("access_token")
         self.cluster = config.get("cluster")
@@ -160,7 +160,7 @@ class TTSProvider(TTSProviderBase):
         self.speech_rate = int(speech_rate) if speech_rate else 0
         self.loudness_rate = int(loudness_rate) if loudness_rate else 0
         self.pitch = int(pitch) if pitch else 0
-        # 多情感音色参数
+        # Multi-emotion voice parameters
         self.emotion = config.get("emotion", "neutral")  
         emotion_scale = config.get("emotion_scale", "4")
         self.emotion_scale = int(emotion_scale) if emotion_scale else 4
@@ -210,7 +210,7 @@ class TTSProvider(TTSProviderBase):
             )
             logger.bind(tag=TAG).debug("WebSocket连接建立成功")
             
-            # 连接建立成功后，启动监听任务
+            # Start monitor task after connection is established
             if self._monitor_task is None or self._monitor_task.done():
                 logger.bind(tag=TAG).debug("启动监听任务...")
                 self._monitor_task = asyncio.create_task(self._start_monitor_tts_response())
@@ -268,7 +268,7 @@ class TTSProvider(TTSProviderBase):
                         continue
 
                 if message.sentence_type == SentenceType.FIRST:
-                    # 初始化参数
+                    # Initialize parameters
                     try:
                         if not getattr(self.conn, "sentence_id", None): 
                             self.conn.sentence_id = uuid.uuid4().hex
@@ -307,7 +307,7 @@ class TTSProvider(TTSProviderBase):
                         f"添加音频文件到待播放列表: {message.content_file}"
                     )
                     if message.content_file and os.path.exists(message.content_file):
-                        # 先处理文件音频数据
+                        # Process file audio data first
                         self._process_audio_file_stream(message.content_file, callback=lambda audio_data: self.handle_audio_file(audio_data, message.content_detail))
                 if message.sentence_type == SentenceType.LAST:
                     try:
@@ -332,15 +332,15 @@ class TTSProvider(TTSProviderBase):
     async def text_to_speak(self, text, _):
         """发送文本到TTS服务"""
         try:
-            # 建立新连接
+            # Establish new connection
             if self.ws is None:
                 logger.bind(tag=TAG).warning(f"WebSocket连接不存在，终止发送文本")
                 return
 
-            #  过滤Markdown
+            # Strip Markdown
             filtered_text = MarkdownCleaner.clean_markdown(text)
 
-            # 发送文本
+            # Send text
             await self.send_text(self.voice, filtered_text, self.conn.sentence_id)
             return
         except Exception as e:
@@ -356,21 +356,21 @@ class TTSProvider(TTSProviderBase):
     async def start_session(self, session_id):
         logger.bind(tag=TAG).debug(f"开始会话～～{session_id}")
         try:       
-            # 等待上一个会话结束，最多等待3次
+            # Wait for previous session to end (up to 3 attempts)
             for _ in range(3):
                 if not self.activate_session:
                     break
                 logger.bind(tag=TAG).debug(f"等待上一个会话结束...")
                 await asyncio.sleep(0.1)
             else:
-                # 等待超时，强制清除连接状态
+                # Wait timed out, force-clear connection state
                 logger.bind(tag=TAG).debug("等待上一个会话超时，清除连接状态...")
                 await self.close()
             
-            # 设置会话激活标志
+            # Set session active flag
             self.activate_session = True
             
-            # 确保连接建立
+            # Ensure connection is established
             await self._ensure_connection()
 
             header = Header(
@@ -388,7 +388,7 @@ class TTSProvider(TTSProviderBase):
             logger.bind(tag=TAG).debug("会话启动请求已发送")
         except Exception as e:
             logger.bind(tag=TAG).error(f"启动会话失败: {str(e)}")
-            # 确保清理资源
+            # Ensure resource cleanup
             await self.close()
             raise
 
@@ -410,7 +410,7 @@ class TTSProvider(TTSProviderBase):
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"关闭会话失败: {str(e)}")
-            # 确保清理资源
+            # Ensure resource cleanup
             await self.close()
             raise
 
@@ -431,14 +431,14 @@ class TTSProvider(TTSProviderBase):
                 logger.bind(tag=TAG).debug("会话取消请求已发送")
         except Exception as e:
             logger.bind(tag=TAG).error(f"取消会话失败: {str(e)}")
-            # 确保清理资源
+            # Ensure resource cleanup
             await self.close()
             raise
 
     async def close(self):
         """资源清理方法"""
         self.activate_session = False
-        # 取消监听任务
+        # Cancel monitor task
         if self._monitor_task:
             try:
                 self._monitor_task.cancel()
@@ -461,19 +461,19 @@ class TTSProvider(TTSProviderBase):
         try:
             while not self.conn.stop_event.is_set():
                 try:
-                    # 确保 `recv()` 运行在同一个 event loop
+                    # Ensure `recv()` runs in the same event loop
                     msg = await self.ws.recv()
                     res = self.parser_response(msg)
                     self.print_response(res, "send_text res:")
 
-                    # 优先处理连接级别事件
+                    # Handle connection-level events first
                     if res.optional.event == EVENT_ConnectionFinished:
                         logger.bind(tag=TAG).debug(f"链接关闭成功～～")
                         break
 
-                    # 只处理当前活跃会话的响应
+                    # Process only responses for the currently active session
                     if res.optional.sessionId and self.conn.sentence_id != res.optional.sessionId:
-                        # 如果是会话结束相关事件，即使会话ID不匹配也要重置状态
+                        # Reset state for session-end events even if session ID does not match
                         if res.optional.event in [EVENT_SessionCanceled, EVENT_SessionFailed, EVENT_SessionFinished]:
                             logger.bind(tag=TAG).debug(f"收到残余下行结束响应重置会话状态～～")
                             self.activate_session = False
@@ -500,7 +500,7 @@ class TTSProvider(TTSProviderBase):
                         logger.bind(tag=TAG).debug(f"会话结束～～")
                         self.activate_session = False
                         self._process_before_stop_play_files()
-                        # 非复用模式下，会话结束后发送 FinishConnection
+                        # In non-reuse mode, send FinishConnection after session ends
                         if not self.enable_ws_reuse:
                             await self.finish_connection()
                 except websockets.ConnectionClosed:
@@ -512,14 +512,14 @@ class TTSProvider(TTSProviderBase):
                     )
                     traceback.print_exc()
                     break
-            # 连接异常时关闭WebSocket
+            # Close WebSocket on connection error
             if self.ws:
                 try:
                     await self.ws.close()
                 except:
                     pass
                 self.ws = None
-        # 监听任务退出时清理引用
+        # Clear reference when monitor task exits
         finally:
             self.activate_session = False
             self._monitor_task = None
@@ -556,7 +556,7 @@ class TTSProvider(TTSProviderBase):
         )
         return await self.send_event(self.ws, header, optional, payload)
 
-    # 读取 res 数组某段 字符串内容
+    # Read string content from a segment of the res array
     def read_res_content(self, res: bytes, offset: int):
         content_size = int.from_bytes(res[offset : offset + 4], "big", signed=True)
         offset += 4
@@ -564,7 +564,7 @@ class TTSProvider(TTSProviderBase):
         offset += content_size
         return content, offset
 
-    # 读取 payload
+    # Read payload
     def read_res_payload(self, res: bytes, offset: int):
         payload_size = int.from_bytes(res[offset : offset + 4], "big", signed=True)
         offset += 4
@@ -576,7 +576,7 @@ class TTSProvider(TTSProviderBase):
         if isinstance(res, str):
             raise RuntimeError(res)
         response = Response(Header(), Optional())
-        # 解析结果
+        # Parse result
         # header
         header = response.header
         num = 0b00001111
@@ -654,7 +654,7 @@ class TTSProvider(TTSProviderBase):
             "loudness_rate": self.loudness_rate
         }
 
-        # 如果是多情感音色,添加情感参数
+        # Add emotion parameters for multi-emotion voices
         if '_emo_' in self.voice:
             if self.emotion:
                 audio_params["emotion"] = self.emotion
@@ -692,18 +692,18 @@ class TTSProvider(TTSProviderBase):
             list: 音频数据列表
         """
         try:
-            # 创建事件循环
+            # Create event loop
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-            # 生成会话ID
+            # Generate session ID
             session_id = uuid.uuid4().__str__().replace("-", "")
 
-            # 存储音频数据
+            # Store audio data
             audio_data = []
 
             async def _generate_audio():
-                # 创建新的WebSocket连接
+                # Create new WebSocket connection
                 ws_header = {
                     "X-Api-App-Key": self.appId,
                     "X-Api-Access-Key": self.access_token,
@@ -715,7 +715,7 @@ class TTSProvider(TTSProviderBase):
                 )
 
                 try:
-                    # 启动会话
+                    # Start session
                     header = Header(
                         message_type=FULL_CLIENT_REQUEST,
                         message_type_specific_flags=MsgTypeFlagWithEvent,
@@ -729,7 +729,7 @@ class TTSProvider(TTSProviderBase):
                     )
                     await self.send_event(ws, header, optional, payload)
 
-                    # 发送文本
+                    # Send text
                     header = Header(
                         message_type=FULL_CLIENT_REQUEST,
                         message_type_specific_flags=MsgTypeFlagWithEvent,
@@ -743,7 +743,7 @@ class TTSProvider(TTSProviderBase):
                     )
                     await self.send_event(ws, header, optional, payload)
 
-                    # 发送结束会话请求
+                    # Send finish-session request
                     header = Header(
                         message_type=FULL_CLIENT_REQUEST,
                         message_type_specific_flags=MsgTypeFlagWithEvent,
@@ -755,7 +755,7 @@ class TTSProvider(TTSProviderBase):
                     payload = str.encode("{}")
                     await self.send_event(ws, header, optional, payload)
 
-                    # 接收音频数据
+                    # Receive audio data
                     while True:
                         msg = await ws.recv()
                         res = self.parser_response(msg)
@@ -769,13 +769,13 @@ class TTSProvider(TTSProviderBase):
                             break
 
                 finally:
-                    # 清理资源
+                    # Clean up resources
                     try:
                         await ws.close()
                     except:
                         pass
 
-            # 运行异步任务
+            # Run async task
             loop.run_until_complete(_generate_audio())
             loop.close()
 

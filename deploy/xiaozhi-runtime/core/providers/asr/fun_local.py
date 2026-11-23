@@ -17,10 +17,10 @@ TAG = __name__
 logger = setup_logging()
 
 MAX_RETRIES = 2
-RETRY_DELAY = 1  # 重试延迟（秒）
+RETRY_DELAY = 1  # Retry delay (seconds)
 
 
-# 捕获标准输出
+# Capture stdout
 class CaptureOutput:
     def __enter__(self):
         self._output = io.StringIO()
@@ -32,7 +32,7 @@ class CaptureOutput:
         self.output = self._output.getvalue()
         self._output.close()
 
-        # 将捕获到的内容通过 logger 输出
+        # Log captured output via logger
         if self.output:
             logger.bind(tag=TAG).info(self.output.strip())
 
@@ -41,7 +41,7 @@ class ASRProvider(ASRProviderBase):
     def __init__(self, config: dict, delete_audio_file: bool):
         super().__init__()
         
-        # 内存检测，要求大于2G
+        # Memory check: require > 2GB
         min_mem_bytes = 2 * 1024 * 1024 * 1024
         total_mem = psutil.virtual_memory().total
         if total_mem < min_mem_bytes:
@@ -49,10 +49,10 @@ class ASRProvider(ASRProviderBase):
         
         self.interface_type = InterfaceType.LOCAL
         self.model_dir = config.get("model_dir")
-        self.output_dir = config.get("output_dir")  # 修正配置键名
+        self.output_dir = config.get("output_dir")  # Config key name
         self.delete_audio_file = delete_audio_file
 
-        # 确保输出目录存在
+        # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
         with CaptureOutput():
             self.model = AutoModel(
@@ -60,7 +60,7 @@ class ASRProvider(ASRProviderBase):
                 vad_kwargs={"max_single_segment_time": 30000},
                 disable_update=True,
                 hub="hf",
-                # device="cuda:0",  # 启用GPU加速
+                # device="cuda:0",  # Enable GPU acceleration
             )
 
     async def speech_to_text(
@@ -72,7 +72,7 @@ class ASRProvider(ASRProviderBase):
 
         while retry_count < MAX_RETRIES:
             try:
-                # 合并所有opus数据包
+                # Merge all opus packets
                 if audio_format == "pcm":
                     pcm_data = opus_data
                 else:
@@ -80,19 +80,19 @@ class ASRProvider(ASRProviderBase):
 
                 combined_pcm_data = b"".join(pcm_data)
 
-                # 检查磁盘空间
+                # Check disk space
                 if not self.delete_audio_file:
                     free_space = shutil.disk_usage(self.output_dir).free
-                    if free_space < len(combined_pcm_data) * 2:  # 预留2倍空间
+                    if free_space < len(combined_pcm_data) * 2:  # Reserve 2x space
                         raise OSError("磁盘空间不足")
 
-                # 判断是否保存为WAV文件
+                # Decide whether to save as WAV file
                 if self.delete_audio_file:
                     pass
                 else:
                     file_path = self.save_audio_to_file(pcm_data, session_id)
 
-                # 语音识别 - 使用线程池避免阻塞事件循环
+                # Speech recognition - use thread pool to avoid blocking event loop
                 start_time = time.time()
                 result = await asyncio.to_thread(
                     self.model.generate,
@@ -126,7 +126,7 @@ class ASRProvider(ASRProviderBase):
                 return "", file_path
 
             finally:
-                # 文件清理逻辑
+                # File cleanup logic
                 if self.delete_audio_file and file_path and os.path.exists(file_path):
                     try:
                         os.remove(file_path)

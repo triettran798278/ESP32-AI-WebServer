@@ -1,5 +1,7 @@
 """Per-agent ThingsBoard reads, capability discovery, and validated RPC."""
 
+from contextlib import asynccontextmanager
+import contextvars
 import importlib
 import json
 import os
@@ -10,6 +12,7 @@ import uuid
 import httpx
 
 UUID_RE = re.compile(r'[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}')
+_SCOPED_REGISTRY: contextvars.ContextVar = contextvars.ContextVar("tb_scoped_registry", default=None)
 
 
 def redact_credentials(value, credential):
@@ -109,6 +112,25 @@ def _matching_device(devices, name):
     return norm_matches[0] if len(norm_matches) == 1 else None
 
 
+def _registry_scope_key(config, profile_id):
+    return ((config.get('host') or '').rstrip('/'), config.get('api_key') or '', profile_id)
+
+
+@asynccontextmanager
+async def scoped_registry(config, profile_id):
+    """Refresh CapabilityRegistry once and reuse it for authorize_rpc within this task scope."""
+    if not profile_id:
+        yield None
+        return
+    connection, registry, _ = _create_mcp_runtime(config, profile_id)
+    await registry.refresh()
+    token = _SCOPED_REGISTRY.set((_registry_scope_key(config, profile_id), connection, registry))
+    try:
+        yield registry
+    finally:
+        _SCOPED_REGISTRY.reset(token)
+
+
 async def authorize_rpc(config, profile_id, device_id, method, params):
     """Refresh and validate against the same registry used by the MCP server."""
     if not profile_id:
@@ -116,9 +138,17 @@ async def authorize_rpc(config, profile_id, device_id, method, params):
     registry = None
     resolved_id = None
     try:
-        connection, registry, _ = _create_mcp_runtime(config, profile_id)
-        await registry.refresh()
-        resolved_id, _ = await connection.resolve_device(device_id)
+        scoped = _SCOPED_REGISTRY.get()
+        scope_key = _registry_scope_key(config, profile_id)
+        if scoped and scoped[0] == scope_key and getattr(scoped[2], 'fresh', False):
+            _, connection, registry = scoped
+            resolved_id = next((d.id for d in getattr(registry, 'devices', ()) if d.id == device_id), None)
+            if not resolved_id:
+                resolved_id, _ = await connection.resolve_device(device_id)
+        else:
+            connection, registry, _ = _create_mcp_runtime(config, profile_id)
+            await registry.refresh()
+            resolved_id, _ = await connection.resolve_device(device_id)
         registry.validate(resolved_id, method, params)
         return None
     except Exception as exc:

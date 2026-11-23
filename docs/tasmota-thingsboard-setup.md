@@ -1,10 +1,10 @@
-# Hướng Dẫn Kết Nối Tasmota ↔ ThingsBoard (2 Chiều)
+# Kết nối hai chiều giữa Tasmota và ThingsBoard
 
-*Cấu hình cố định qua MQTT Broker trung gian (`broker.emqx.io`), không đổi Port theo giờ và hỗ trợ điều khiển 2 chiều.*
+Hướng dẫn này dành cho thiết bị Tasmota vật lý dùng MQTT broker `broker.emqx.io`. Xem [hợp đồng RPC ThingsBoard](thingsboard-rpc-contract.md) để chạy demo và bộ mô phỏng.
 
 ---
 
-## 1. Thông Tin Kết Nối
+## Thông tin kết nối
 
 - **Web ThingsBoard:** `https://codehelpers.tech`
 - **MQTT Host:** `broker.emqx.io`
@@ -17,9 +17,9 @@
 
 ---
 
-## 2. Cấu Hình Trên Tasmota
+## Cấu hình Tasmota
 
-### Bước 1: Nhập thông số MQTT (`Configuration → Configure MQTT`)
+### Nhập thông số MQTT (`Configuration → Configure MQTT`)
 - **Host:** `broker.emqx.io`
 - **Port:** `1883`
 - **User:** *(xóa trắng / để trống)*
@@ -28,7 +28,7 @@
 - **Full Topic:** `tbch_8x4k/%prefix%/%topic%/`
 - Bấm **Save** (Tasmota sẽ tự khởi động lại).
 
-### Bước 2: Tắt Rule cũ (nếu trước đó đã dán `Rule1` / `Rule2`)
+### Tắt Rule cũ (nếu trước đó đã dán `Rule1` / `Rule2`)
 Nếu mạch mới flash sạch thì **bỏ qua bước này** (không cần viết Rule nào cả).
 Nếu trước đó bạn từng cài `Rule1` / `Rule2` để đẩy vào `v1/devices/me/telemetry`, mở **Consoles → Console** và chạy:
 ```text
@@ -38,7 +38,7 @@ Rule2 0
 
 ---
 
-## 3. Kiểm Tra Kết Nối 2 Chiều Trên ThingsBoard
+## Kiểm tra kết nối hai chiều trên ThingsBoard
 
 1. Mở `https://codehelpers.tech` → **Entities → Devices** → chọn `sensor1` (hoặc device mới vừa tự tạo).
 2. **Chiều lên (Tasmota → ThingsBoard):**

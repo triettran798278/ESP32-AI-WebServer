@@ -1,4 +1,4 @@
-// DOM元素
+// DOM elements
 const connectButton = document.getElementById('connectButton');
 const serverUrlInput = document.getElementById('serverUrl');
 const connectionStatus = document.getElementById('connectionStatus');
@@ -6,12 +6,12 @@ const messageInput = document.getElementById('messageInput');
 const sendTextButton = document.getElementById('sendTextButton');
 const recordButton = document.getElementById('recordButton');
 const stopButton = document.getElementById('stopButton');
-// 会话记录
+// Conversation history
 const conversationDiv = document.getElementById('conversation');
 const logContainer = document.getElementById('logContainer');
 let visualizerCanvas = document.getElementById('audioVisualizer');
 
-// ota 是否连接成功，修改成对应的样式
+// Update style based on OTA connection status
 export function otaStatusStyle(flan) {
     if (flan) {
         document.getElementById('otaStatus').textContent = 'OTA已连接';
@@ -22,12 +22,12 @@ export function otaStatusStyle(flan) {
     }
 }
 
-// ota 是否连接成功，修改成对应的样式
+// Get log container element
 export function getLogContainer(flan) {
     return logContainer;
 }
 
-// 更新Opus库状态显示
+// Update Opus library status display
 export function updateScriptStatus(message, type) {
     const statusElement = document.getElementById('scriptStatus');
     if (statusElement) {
@@ -38,7 +38,7 @@ export function updateScriptStatus(message, type) {
     }
 }
 
-// 添加消息到会话记录
+// Add message to conversation history
 export function addMessage(text, isUser = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user' : 'server'}`;

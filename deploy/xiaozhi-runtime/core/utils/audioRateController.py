@@ -20,31 +20,31 @@ class AudioRateController:
         """
         self.frame_duration = frame_duration
         self.queue = deque()
-        self.play_position = 0  # 虚拟播放位置（毫秒）
-        self.start_timestamp = None  # 开始时间戳（只读，不修改）
+        self.play_position = 0  # Virtual playback position (ms)
+        self.start_timestamp = None  # Start timestamp (read-only, never modified)
         self.pending_send_task = None
         self.logger = logger
-        self.queue_empty_event = asyncio.Event()  # 队列清空事件
-        self.queue_empty_event.set()  # 初始为空状态
-        self.queue_has_data_event = asyncio.Event()  # 队列数据事件
+        self.queue_empty_event = asyncio.Event()  # Queue empty event
+        self.queue_empty_event.set()  # Initially empty
+        self.queue_has_data_event = asyncio.Event()  # Queue has-data event
 
     def reset(self):
         """重置控制器状态"""
         if self.pending_send_task and not self.pending_send_task.done():
             self.pending_send_task.cancel()
-            # 取消任务后，任务会在下次事件循环时清理，无需阻塞等待
+            # Cancelled task will clean up on next event loop tick; no need to block
 
         self.queue.clear()
         self.play_position = 0
-        self.start_timestamp = None  # 由首个音频包设置
-        # 相关事件处理
+        self.start_timestamp = None  # Set by the first audio packet
+        # Update queue events
         self.queue_empty_event.set()
         self.queue_has_data_event.clear()
 
     def add_audio(self, opus_packet):
         """添加音频包到队列"""
         self.queue.append(("audio", opus_packet))
-        # 相关事件处理
+        # Update queue events
         self.queue_empty_event.clear()
         self.queue_has_data_event.set()
 
@@ -56,7 +56,7 @@ class AudioRateController:
             message_callback: 消息发送回调函数 async def()
         """
         self.queue.append(("message", message_callback))
-        # 相关事件处理
+        # Update queue events
         self.queue_empty_event.clear()
         self.queue_has_data_event.set()
 
@@ -78,7 +78,7 @@ class AudioRateController:
             item_type = item[0]
 
             if item_type == "message":
-                # 消息类型：立即发送，不占用播放时间
+                # Message type: send immediately without consuming playback time
                 _, message_callback = item
                 self.queue.popleft()
                 try:
@@ -93,28 +93,28 @@ class AudioRateController:
 
                 _, opus_packet = item
 
-                # 循环等待直到时间到达
+                # Loop until scheduled send time is reached
                 while True:
-                    # 计算时间差
+                    # Compute time difference
                     elapsed_ms = self._get_elapsed_ms()
                     output_ms = self.play_position
 
                     if elapsed_ms < output_ms:
-                        # 还不到发送时间，计算等待时长
+                        # Not yet time to send; compute wait duration
                         wait_ms = output_ms - elapsed_ms
 
-                        # 等待后继续检查（允许被中断）
+                        # Sleep and re-check (interruptible)
                         try:
                             await asyncio.sleep(wait_ms / 1000)
                         except asyncio.CancelledError:
                             self.logger.bind(tag=TAG).debug("音频发送任务被取消")
                             raise
-                        # 等待结束后重新检查时间（循环回到 while True）
+                        # Re-check elapsed time after sleeping (loop back to while True)
                     else:
-                        # 时间已到，跳出等待循环
+                        # Time reached; exit wait loop
                         break
 
-                # 时间已到，从队列移除并发送
+                # Time reached; pop from queue and send
                 self.queue.popleft()
                 self.play_position += self.frame_duration
                 try:
@@ -123,7 +123,7 @@ class AudioRateController:
                     self.logger.bind(tag=TAG).error(f"发送音频失败: {e}")
                     raise
 
-        # 队列处理完后清除事件
+        # Clear data event after queue is drained
         self.queue_empty_event.set()
         self.queue_has_data_event.clear()
 
@@ -141,7 +141,7 @@ class AudioRateController:
         async def _send_loop():
             try:
                 while True:
-                    # 等待队列数据事件，不轮询等待占用CPU
+                    # Wait for queue data event instead of busy-polling CPU
                     await self.queue_has_data_event.wait()
 
                     await self.check_queue(send_audio_callback)

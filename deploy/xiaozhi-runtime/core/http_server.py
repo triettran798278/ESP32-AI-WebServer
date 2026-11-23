@@ -43,7 +43,7 @@ class SimpleHttpServer:
                 app = web.Application()
 
                 if not read_config_from_api:
-                    # 如果没有开启智控台，只是单模块运行，就需要再添加简单OTA接口，用于下发websocket接口
+                    # Add a simple OTA endpoint to distribute the WebSocket endpoint when running standalone without the control console
                     app.add_routes(
                         [
                             web.get("/xiaozhi/ota/", self.ota_handler.handle_get),
@@ -51,7 +51,7 @@ class SimpleHttpServer:
                             web.options(
                                 "/xiaozhi/ota/", self.ota_handler.handle_options
                             ),
-                            # 下载接口，仅提供 data/bin/*.bin 下载
+                            # Download endpoint, serving only data/bin/*.bin
                             web.get(
                                 "/xiaozhi/ota/download/{filename}",
                                 self.ota_handler.handle_download,
@@ -62,7 +62,7 @@ class SimpleHttpServer:
                             ),
                         ]
                     )
-                # 添加路由
+                # Add routes
                 app.add_routes(
                     [
                         web.get("/mcp/vision/explain", self.vision_handler.handle_get),
@@ -75,15 +75,15 @@ class SimpleHttpServer:
                     ]
                 )
 
-                # 运行服务
+                # Start server
                 runner = web.AppRunner(app)
                 await runner.setup()
                 site = web.TCPSite(runner, host, port)
                 await site.start()
 
-                # 保持服务运行
+                # Keep server running
                 while True:
-                    await asyncio.sleep(3600)  # 每隔 1 小时检查一次
+                    await asyncio.sleep(3600)  # Check every 1 hour
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"HTTP服务器启动失败: {e}")
             import traceback

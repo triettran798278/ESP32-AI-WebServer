@@ -45,10 +45,10 @@ class AccessToken:
             "Timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "Version": "2019-02-28",
         }
-        # 构造规范化的请求字符串
+        # Build canonicalized query string
         query_string = AccessToken._encode_dict(parameters)
-        # print('规范化的请求字符串: %s' % query_string)
-        # 构造待签名字符串
+        # print('Canonicalized query string: %s' % query_string)
+        # Build string to sign
         string_to_sign = (
             "GET"
             + "&"
@@ -56,25 +56,25 @@ class AccessToken:
             + "&"
             + AccessToken._encode_text(query_string)
         )
-        # print('待签名的字符串: %s' % string_to_sign)
-        # 计算签名
+        # print('String to sign: %s' % string_to_sign)
+        # Compute signature
         secreted_string = hmac.new(
             bytes(access_key_secret + "&", encoding="utf-8"),
             bytes(string_to_sign, encoding="utf-8"),
             hashlib.sha1,
         ).digest()
         signature = base64.b64encode(secreted_string)
-        # print('签名: %s' % signature)
-        # 进行URL编码
+        # print('Signature: %s' % signature)
+        # URL-encode signature
         signature = AccessToken._encode_text(signature)
-        # print('URL编码后的签名: %s' % signature)
-        # 调用服务
+        # print('URL-encoded signature: %s' % signature)
+        # Call service
         full_url = "http://nls-meta.cn-shanghai.aliyuncs.com/?Signature=%s&%s" % (
             signature,
             query_string,
         )
         # print('url: %s' % full_url)
-        # 提交HTTP GET请求
+        # Send HTTP GET request
         response = requests.get(full_url)
         if response.ok:
             root_obj = response.json()
@@ -92,7 +92,7 @@ class ASRProvider(ASRProviderBase):
         super().__init__()
         self.interface_type = InterfaceType.NON_STREAM
         """阿里云ASR初始化"""
-        # 新增空值判断逻辑
+        # Null-check logic
         self.access_key_id = config.get("access_key_id")
         self.access_key_secret = config.get("access_key_secret")
 
@@ -105,14 +105,14 @@ class ASRProvider(ASRProviderBase):
         self.delete_audio_file = delete_audio_file
 
         if self.access_key_id and self.access_key_secret:
-            # 使用密钥对生成临时token
+            # Generate temporary token using key pair
             self._refresh_token()
         else:
-            # 直接使用预生成的长期token
+            # Use pre-generated long-lived token directly
             self.token = config.get("token")
             self.expire_time = None
 
-        # 确保输出目录存在
+        # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
     def _refresh_token(self):
@@ -125,7 +125,7 @@ class ASRProvider(ASRProviderBase):
                 raise ValueError("无法获取有效的Token过期时间")
 
             try:
-                # 统一转换为字符串处理
+                # Convert uniformly to string
                 expire_str = str(expire_time_str).strip()
 
                 if expire_str.isdigit():
@@ -145,13 +145,13 @@ class ASRProvider(ASRProviderBase):
     def _is_token_expired(self):
         """检查Token是否过期"""
         if not self.expire_time:
-            return False  # 长期Token不过期
-        # 新增调试日志
+            return False  # Long-lived token does not expire
+        # Debug logging
         # current_time = time.time()
         # remaining = self.expire_time - current_time
-        # print(f"Token过期检查: 当前时间 {datetime.fromtimestamp(current_time)} | "
-        #              f"过期时间 {datetime.fromtimestamp(self.expire_time)} | "
-        #              f"剩余 {remaining:.2f}秒")
+        # print(f"Token expiration check: current {datetime.fromtimestamp(current_time)} | "
+        #              f"expires {datetime.fromtimestamp(self.expire_time)} | "
+        #              f"remaining {remaining:.2f}s")
         return time.time() > self.expire_time
 
     def _construct_request_url(self) -> str:
@@ -167,14 +167,14 @@ class ASRProvider(ASRProviderBase):
     async def _send_request(self, pcm_data: bytes) -> Optional[str]:
         """发送请求到阿里云ASR服务"""
         try:
-            # 设置HTTP头
+            # Set HTTP headers
             headers = {
                 "X-NLS-Token": self.token,
                 "Content-type": "application/octet-stream",
                 "Content-Length": str(len(pcm_data)),
             }
 
-            # 创建连接并发送请求
+            # Create connection and send request
             conn = http.client.HTTPSConnection(self.host)
             request_url = self._construct_request_url()
 
@@ -186,12 +186,12 @@ class ASRProvider(ASRProviderBase):
                 ),
             )
 
-            # 获取响应
+            # Get response
             response = await loop.run_in_executor(None, conn.getresponse)
             body = await loop.run_in_executor(None, response.read)
             conn.close()
 
-            # 解析响应
+            # Parse response
             try:
                 body_json = json.loads(body)
                 status = body_json.get("status")
@@ -222,20 +222,20 @@ class ASRProvider(ASRProviderBase):
 
         file_path = None
         try:
-            # 解码Opus为PCM
+            # Decode Opus to PCM
             if audio_format == "pcm":
                 pcm_data = opus_data
             else:
                 pcm_data = self.decode_opus(opus_data)
             combined_pcm_data = b"".join(pcm_data)
 
-            # 判断是否保存为WAV文件
+            # Decide whether to save as WAV file
             if self.delete_audio_file:
                 pass
             else:
                 file_path = self.save_audio_to_file(pcm_data, session_id)
 
-            # 发送请求并获取文本
+            # Send request and get text
             text = await self._send_request(combined_pcm_data)
 
             if text:

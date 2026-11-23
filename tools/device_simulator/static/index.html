@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" data-type="software">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="page-type" content="software">
+  <meta name="site-kind" content="software">
+  <title>Device Workbench</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/workbench.js"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/"><span class="brand-icon" aria-hidden="true">⌘</span>Device Workbench</a>
+    <span class="transport"><span class="dot" aria-hidden="true"></span>ThingsBoard device transport</span>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <label class="nav-title" for="search">Devices <span id="count"></span></label>
+      <input id="search" type="search" placeholder="Find a device">
+      <nav id="devices" aria-label="Devices"></nav>
+    </aside>
+    <main>
+      <p id="notice" role="status" class="notice" hidden></p>
+      <section id="detail" hidden aria-labelledby="title">
+        <div class="device-header">
+          <div>
+            <p class="group" id="group"></p>
+            <h1 id="title"></h1>
+            <p class="device-id" id="device-id"></p>
+          </div>
+          <button id="pause" class="button secondary" type="button"></button>
+        </div>
+        <dl class="connection-strip">
+          <div><dt>Device status</dt><dd id="status"></dd></div>
+          <div><dt>Last telemetry</dt><dd id="last-sent"></dd></div>
+          <div><dt>Transport</dt><dd>HTTPS <span class="muted">·</span> 30 s interval</dd></div>
+        </dl>
+        <div class="workspace">
+          <div class="controls">
+            <section id="actuator-panel" class="panel" aria-labelledby="actuator-title">
+              <div class="panel-title"><h2 id="actuator-title">Controls</h2></div>
+              <div id="actuators"></div>
+            </section>
+            <form class="panel" id="telemetry" aria-labelledby="telemetry-title">
+              <div class="panel-title"><h2 id="telemetry-title">Telemetry</h2></div>
+              <div id="sensors"></div>
+              <div class="form-actions"><button class="button primary" type="submit">Send telemetry <span aria-hidden="true">↗</span></button></div>
+            </form>
+          </div>
+          <div class="inspection">
+            <section class="panel payload-panel" aria-labelledby="payload-title">
+              <div class="panel-title"><h2 id="payload-title">Payload preview</h2><span class="format">JSON</span></div>
+              <pre id="payload"></pre>
+            </section>
+            <section class="panel" aria-labelledby="activity-title">
+              <div class="panel-title"><h2 id="activity-title">Recent activity</h2></div>
+              <ul id="activity"></ul>
+            </section>
+          </div>
+        </div>
+      </section>
+      <p id="loading" class="muted">Loading devices…</p>
+    </main>
+  </div>
+</body>
+</html>

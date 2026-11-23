@@ -1,10 +1,10 @@
-// UI控制模块
+// UI controller module
 import { loadConfig, saveConfig } from '../config/manager.js';
 import { getAudioPlayer } from '../core/audio/player.js';
 import { getAudioRecorder } from '../core/audio/recorder.js';
 import { getWebSocketHandler } from '../core/network/websocket.js';
 
-// UI控制器类
+// UI controller class
 export class UIController {
     constructor() {
         this.isEditing = false;
@@ -13,7 +13,7 @@ export class UIController {
         this.audioStatsTimer = null;
     }
 
-    // 初始化
+    // Initialize
     init() {
         this.visualizerCanvas = document.getElementById('audioVisualizer');
         this.visualizerContext = this.visualizerCanvas.getContext('2d');
@@ -24,7 +24,7 @@ export class UIController {
         loadConfig();
     }
 
-    // 初始化可视化器
+    // Initialize visualizer
     initVisualizer() {
         this.visualizerCanvas.width = this.visualizerCanvas.clientWidth;
         this.visualizerCanvas.height = this.visualizerCanvas.clientHeight;
@@ -32,7 +32,7 @@ export class UIController {
         this.visualizerContext.fillRect(0, 0, this.visualizerCanvas.width, this.visualizerCanvas.height);
     }
 
-    // 更新状态显示
+    // Update status display
     updateStatusDisplay(element, text) {
         element.textContent = text;
         element.removeAttribute('style');
@@ -43,7 +43,7 @@ export class UIController {
         console.log('更新状态:', text, '类列表:', element.className, '样式属性:', element.getAttribute('style'));
     }
 
-    // 更新连接状态UI
+    // Update connection status UI
     updateConnectionUI(isConnected) {
         const connectionStatus = document.getElementById('connectionStatus');
         const otaStatus = document.getElementById('otaStatus');
@@ -66,12 +66,12 @@ export class UIController {
             messageInput.disabled = true;
             sendTextButton.disabled = true;
             recordButton.disabled = true;
-            // 断开连接时，会话状态变为离线
+            // Set session status to offline when disconnected
             this.updateSessionStatus(null);
         }
     }
 
-    // 更新录音按钮状态
+    // Update record button state
     updateRecordButtonState(isRecording, seconds = 0) {
         const recordButton = document.getElementById('recordButton');
         if (isRecording) {
@@ -84,47 +84,47 @@ export class UIController {
         recordButton.disabled = false;
     }
 
-    // 更新会话状态UI
+    // Update session status UI
     updateSessionStatus(isSpeaking) {
         const sessionStatus = document.getElementById('sessionStatus');
         if (!sessionStatus) return;
 
-        // 保留背景元素
+        // Preserve background element
         const bgHtml = '<span id="sessionStatusBg" style="position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: linear-gradient(90deg, rgba(76, 175, 80, 0.2), rgba(33, 150, 243, 0.2)); transition: width 0.15s ease-out, background 0.3s ease; z-index: 0; border-radius: 20px;"></span>';
 
         if (isSpeaking === null) {
-            // 离线状态
+            // Offline state
             sessionStatus.innerHTML = bgHtml + '<span style="position: relative; z-index: 1;"><span class="emoji-large">😶</span> 小智离线中</span>';
             sessionStatus.className = 'status offline';
         } else if (isSpeaking) {
-            // 说话中
+            // Speaking
             sessionStatus.innerHTML = bgHtml + '<span style="position: relative; z-index: 1;"><span class="emoji-large">😶</span> 小智说话中</span>';
             sessionStatus.className = 'status speaking';
         } else {
-            // 聆听中
+            // Listening
             sessionStatus.innerHTML = bgHtml + '<span style="position: relative; z-index: 1;"><span class="emoji-large">😶</span> 小智聆听中</span>';
             sessionStatus.className = 'status listening';
         }
     }
 
-    // 更新会话表情
+    // Update session emotion
     updateSessionEmotion(emoji) {
         const sessionStatus = document.getElementById('sessionStatus');
         if (!sessionStatus) return;
 
-        // 获取当前文本内容，提取非表情部分
+        // Get current text content and extract non-emoji part
         let currentText = sessionStatus.textContent;
-        // 移除现有的表情符号
+        // Remove existing emojis
         currentText = currentText.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
 
-        // 保留背景元素
+        // Preserve background element
         const bgHtml = '<span id="sessionStatusBg" style="position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: linear-gradient(90deg, rgba(76, 175, 80, 0.2), rgba(33, 150, 243, 0.2)); transition: width 0.15s ease-out, background 0.3s ease; z-index: 0; border-radius: 20px;"></span>';
 
-        // 使用 innerHTML 添加带样式的表情
+        // Use innerHTML to add styled emoji
         sessionStatus.innerHTML = bgHtml + `<span style="position: relative; z-index: 1;"><span class="emoji-large">${emoji}</span> ${currentText}</span>`;
     }
 
-    // 更新音频统计信息
+    // Update audio stats
     updateAudioStats() {
         const audioPlayer = getAudioPlayer();
         const stats = audioPlayer.getAudioStats();
@@ -132,10 +132,10 @@ export class UIController {
         const sessionStatus = document.getElementById('sessionStatus');
         const sessionStatusBg = document.getElementById('sessionStatusBg');
 
-        // 只在说话状态下显示背景进度
+        // Only show background progress while speaking
         if (sessionStatus && sessionStatus.classList.contains('speaking') && sessionStatusBg) {
             if (stats.pendingPlay > 0) {
-                // 计算进度：5包=50%，10包及以上=100%
+                // Compute progress: 5 packets = 50%, 10+ packets = 100%
                 let percentage;
                 if (stats.pendingPlay >= 10) {
                     percentage = 100;
@@ -145,38 +145,38 @@ export class UIController {
 
                 sessionStatusBg.style.width = `${percentage}%`;
 
-                // 根据缓冲量改变背景颜色
+                // Change background color based on buffer level
                 if (stats.pendingPlay < 5) {
-                    // 缓冲不足：橙红色半透明
+                    // Low buffer: translucent orange-red
                     sessionStatusBg.style.background = 'linear-gradient(90deg, rgba(255, 152, 0, 0.25), rgba(255, 87, 34, 0.25))';
                 } else if (stats.pendingPlay < 10) {
-                    // 一般：黄绿色半透明
+                    // Moderate buffer: translucent yellow-green
                     sessionStatusBg.style.background = 'linear-gradient(90deg, rgba(205, 220, 57, 0.25), rgba(76, 175, 80, 0.25))';
                 } else {
-                    // 充足：绿蓝色半透明
+                    // Sufficient buffer: translucent green-blue
                     sessionStatusBg.style.background = 'linear-gradient(90deg, rgba(76, 175, 80, 0.25), rgba(33, 150, 243, 0.25))';
                 }
             } else {
-                // 没有缓冲，隐藏背景
+                // No buffer; hide background
                 sessionStatusBg.style.width = '0%';
             }
         } else {
-            // 非说话状态，隐藏背景
+            // Not speaking; hide background
             if (sessionStatusBg) {
                 sessionStatusBg.style.width = '0%';
             }
         }
     }
 
-    // 启动音频统计监控
+    // Start audio stats monitor
     startAudioStatsMonitor() {
-        // 每100ms更新一次音频统计
+        // Update audio stats every 100ms
         this.audioStatsTimer = setInterval(() => {
             this.updateAudioStats();
         }, 100);
     }
 
-    // 停止音频统计监控
+    // Stop audio stats monitor
     stopAudioStatsMonitor() {
         if (this.audioStatsTimer) {
             clearInterval(this.audioStatsTimer);
@@ -184,7 +184,7 @@ export class UIController {
         }
     }
 
-    // 绘制音频可视化效果
+    // Draw audio visualizer
     drawVisualizer(dataArray) {
         this.visualizerContext.fillStyle = '#fafafa';
         this.visualizerContext.fillRect(0, 0, this.visualizerCanvas.width, this.visualizerCanvas.height);
@@ -196,10 +196,10 @@ export class UIController {
         for (let i = 0; i < dataArray.length; i++) {
             barHeight = dataArray[i] / 2;
 
-            // 创建渐变色：从紫色到蓝色到青色
-            const hue = 200 + (barHeight / this.visualizerCanvas.height) * 60; // 200-260度，从青色到紫色
-            const saturation = 80 + (barHeight / this.visualizerCanvas.height) * 20; // 饱和度 80-100%
-            const lightness = 45 + (barHeight / this.visualizerCanvas.height) * 15; // 亮度 45-60%
+            // Create gradient color from cyan to blue to purple
+            const hue = 200 + (barHeight / this.visualizerCanvas.height) * 60; // 200-260 deg, cyan to purple
+            const saturation = 80 + (barHeight / this.visualizerCanvas.height) * 20; // Saturation 80-100%
+            const lightness = 45 + (barHeight / this.visualizerCanvas.height) * 15; // Lightness 45-60%
 
             this.visualizerContext.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
             this.visualizerContext.fillRect(x, this.visualizerCanvas.height - barHeight, barWidth, barHeight);
@@ -208,12 +208,12 @@ export class UIController {
         }
     }
 
-    // 初始化事件监听器
+    // Initialize event listeners
     initEventListeners() {
         const wsHandler = getWebSocketHandler();
         const audioRecorder = getAudioRecorder();
 
-        // 设置WebSocket回调
+        // Set WebSocket callbacks
         wsHandler.onConnectionStateChange = (isConnected) => {
             this.updateConnectionUI(isConnected);
         };
@@ -230,7 +230,7 @@ export class UIController {
             this.updateSessionEmotion(emoji);
         };
 
-        // 设置录音器回调
+        // Set recorder callbacks
         audioRecorder.onRecordingStart = (seconds) => {
             this.updateRecordButtonState(true, seconds);
         };
@@ -243,7 +243,7 @@ export class UIController {
             this.drawVisualizer(dataArray);
         };
 
-        // 连接按钮
+        // Connect button
         const connectButton = document.getElementById('connectButton');
         let isConnecting = false;
 
@@ -261,7 +261,7 @@ export class UIController {
 
         connectButton.addEventListener('click', handleConnect);
 
-        // 设备配置面板编辑/确定切换
+        // Device config panel edit/confirm toggle
         const toggleButton = document.getElementById('toggleConfig');
         const deviceMacInput = document.getElementById('deviceMac');
         const deviceNameInput = document.getElementById('deviceName');
@@ -281,7 +281,7 @@ export class UIController {
             }
         });
 
-        // 标签页切换
+        // Tab switching
         const tabs = document.querySelectorAll('.tab');
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -300,7 +300,7 @@ export class UIController {
             });
         });
 
-        // 发送文本消息
+        // Send text message
         const messageInput = document.getElementById('messageInput');
         const sendTextButton = document.getElementById('sendTextButton');
 
@@ -316,7 +316,7 @@ export class UIController {
             if (e.key === 'Enter') sendMessage();
         });
 
-        // 录音按钮
+        // Record button
         const recordButton = document.getElementById('recordButton');
         recordButton.addEventListener('click', () => {
             if (audioRecorder.isRecording) {
@@ -326,12 +326,12 @@ export class UIController {
             }
         });
 
-        // 窗口大小变化
+        // Window resize
         window.addEventListener('resize', () => this.initVisualizer());
     }
 }
 
-// 创建单例
+// Create singleton
 let uiControllerInstance = null;
 
 export function getUIController() {

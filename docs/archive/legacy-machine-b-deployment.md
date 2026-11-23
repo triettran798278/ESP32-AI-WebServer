@@ -1,10 +1,12 @@
-# Hướng Dẫn Deploy & Cấu Hình XiaoZhi Server Trên Máy B (Linux Docker)
+# Triển khai XiaoZhi Server trên máy B
+
+> **Tài liệu lưu trữ.** Các lệnh và cấu hình dưới đây mô tả mô hình AI Gateway cũ trên cổng 8080. Để triển khai hệ thống hiện tại, xem [hướng dẫn triển khai cục bộ](../reproduce-deployment.md).
 
 Tài liệu này được tối ưu riêng cho **Máy B chạy Linux** (Ubuntu, Debian, Fedora, Arch, Raspberry Pi OS,...) làm Gateway kết nối tới **Máy A chạy Windows/AI Backend** (Ryzen 7 8845HS + GPU).
 
 ---
 
-## 1. Mô hình kết nối hệ thống (Unified Gateway - 1 Port & 1 Key)
+## Mô hình kết nối hệ thống (Unified Gateway - 1 Port & 1 Key)
 
 ```
 [ Thiết bị ESP32 ]
@@ -22,7 +24,7 @@ Tài liệu này được tối ưu riêng cho **Máy B chạy Linux** (Ubuntu, 
 
 ---
 
-## 2. Bước 1: Kiểm tra kết nối từ Máy B sang Gateway Máy A
+## Kiểm tra kết nối từ máy B sang gateway máy A
 
 Giả sử IP mạng LAN của Máy A là `192.168.1.150`:
 ```bash
@@ -39,7 +41,7 @@ curl -s -H "Authorization: Bearer ${API_KEY}" "http://${AI_NODE_IP}:8080/v1/mode
 
 ---
 
-## 3. Bước 2: Chuẩn bị thư mục & Docker trên Máy B
+## Chuẩn bị thư mục và Docker trên máy B
 
 Nếu tài khoản hiện tại chưa chạy được Docker không cần `sudo`:
 ```bash
@@ -55,7 +57,7 @@ cd ~/xiaozhi-server
 
 ---
 
-## 4. Bước 3: Tạo file `config.yaml` (Cực kỳ ngắn gọn)
+## Tạo file `config.yaml`
 
 Nhờ có Gateway, tất cả ASR, LLM, TTS trên Máy B đều trỏ về **cùng 1 Base URL (`:8080/v1`)** và **1 API Key**:
 
@@ -103,7 +105,7 @@ EOF
 
 ---
 
-## 5. Bước 4: Tạo `docker-compose.yml` & Khởi chạy
+## Tạo `docker-compose.yml` và khởi chạy
 
 Tạo file `docker-compose.yml`:
 ```bash
@@ -131,7 +133,7 @@ docker compose logs -f
 
 ---
 
-## 6. Bước 5: Mở Firewall trên Linux (Nếu Máy B bật UFW/Firewalld)
+## Mở cổng trên Linux khi dùng UFW hoặc firewalld
 
 Để thiết bị ESP32 kết nối được vào port `8000` của Máy B:
 
@@ -148,14 +150,14 @@ docker compose logs -f
 
 ---
 
-## 7. Bước 6: Cấu hình trên thiết bị ESP32
+## Cấu hình trên thiết bị ESP32
 
-- URL WebSocket kết nối: `ws://<IP_MÁY_B>:8000/` (thay `<IP_MÁY_B>` bằng IP lấy được ở mục 2.1).
+- Kết nối WebSocket qua `ws://<IP_MÁY_B>:8000/`, thay `<IP_MÁY_B>` bằng địa chỉ LAN của máy B.
 - ESP32 và Máy B cùng kết nối chung một mạng WiFi/Router.
 
 ---
 
-## 8. Xử lý sự cố thường gặp (Troubleshooting)
+## Xử lý sự cố thường gặp (Troubleshooting)
 
 | Hiện tượng | Nguyên nhân | Cách khắc phục |
 | :--- | :--- | :--- |

@@ -1,5 +1,7 @@
 # Capability-aware ThingsBoard MCP: session handoff
 
+For current simulator and RPC instructions, see the [ThingsBoard RPC guide](thingsboard-rpc-contract.md).
+
 **Status: paused and incomplete.** The objective is the implementation prompt at
 `/home/ydt/.codex/attachments/904b3152-0c54-4c3c-b0e4-94a166d384c1/Pasted text.txt`.
 Read it before resuming: it requires a simulated Tasmota → MQTT → ThingsBoard →
@@ -94,5 +96,5 @@ The repository already had substantial unrelated staged/unstaged or untracked
 work before this task, including changes in firmware, frontend, platform data,
 deployment files, and deletions. The task also touched some already-dirty files.
 Inspect `git status` and each relevant diff before editing; preserve all existing
-user changes. No commit or deployment was made in this session. The existing
-root `HANDOFF.md` is a separate older handoff and was not replaced.
+user changes. No commit or deployment was made in this session. The older
+[gateway handoff](archive/legacy-gateway-handoff.md) is a separate record.

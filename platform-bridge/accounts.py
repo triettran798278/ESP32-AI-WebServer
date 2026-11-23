@@ -6,14 +6,17 @@ import getpass
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import sqlite3
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 DATA_DIR = Path(os.getenv('PLATFORM_DATA_DIR', '/app/data' if os.path.exists('/app') else './data'))
 SESSION_SECONDS = 12 * 60 * 60
+logger = logging.getLogger('platform_bridge.accounts')
 
 
 def _password_hash(password, salt):
@@ -68,6 +71,10 @@ class AccountStore:
             raise ValueError('Password must contain 12 to 1024 characters')
         salt = secrets.token_bytes(16)
         return salt.hex(), _password_hash(password, salt)
+
+    def user_exists(self, username):
+        with self.connect() as conn:
+            return conn.execute('SELECT 1 FROM users WHERE username = ?', (username,)).fetchone() is not None
 
     def create_user(self, username, password):
         salt, digest = self._credentials(username, password)
@@ -176,15 +183,95 @@ class AccountStore:
                 conn.execute('DELETE FROM sessions WHERE token_hash = ?', (_token_hash(token),))
 
 
+def _validated_tb_host(raw_host):
+    if not raw_host:
+        return ''
+    try:
+        parsed = urlsplit(raw_host)
+        if (parsed.scheme in ('http', 'https') and parsed.hostname and parsed.username is None
+                and parsed.password is None and parsed.path in ('', '/')
+                and not parsed.query and not parsed.fragment):
+            hostname = f'[{parsed.hostname.lower()}]' if ':' in parsed.hostname else parsed.hostname.lower()
+            return f'{parsed.scheme}://{hostname}' + (f':{parsed.port}' if parsed.port is not None else '')
+    except (ValueError, TypeError):
+        pass
+    logger.warning('Ignoring invalid THINGSBOARD_HOST during agent bootstrap')
+    return ''
+
+
+def bootstrap_from_env(store, env=None):
+    """Idempotently create an initial console account and starter agent from env vars."""
+    env = os.environ if env is None else env
+    username = (env.get('CONSOLE_USERNAME') or '').strip()
+    password = env.get('CONSOLE_PASSWORD') or ''
+    if not username or not password:
+        return {'created_user': False, 'created_agent': False}
+
+    created_user = False
+    if not store.user_exists(username):
+        try:
+            store.create_user(username, password)
+            created_user = True
+            logger.info('Bootstrapped console account %r from environment', username)
+        except ValueError as exc:
+            if 'already exists' not in str(exc):
+                logger.warning('Skipping CONSOLE_USERNAME bootstrap for %r: %s', username, exc)
+                return {'created_user': False, 'created_agent': False, 'error': str(exc)}
+
+    if not store.list_agents(username):
+        tb_host = _validated_tb_host((env.get('THINGSBOARD_HOST') or '').strip().rstrip('/'))
+        tb_key = (env.get('THINGSBOARD_API_KEY') or '').strip()
+        agent_id = 'agent_' + hashlib.sha256(f'bootstrap:{username}'.encode()).hexdigest()[:16]
+        starter_agent = {
+            'id': agent_id,
+            'name': 'Smart Home Assistant',
+            'role': 'Nova',
+            'status': 'online',
+            'language': 'vi',
+            'tool_policy': 'full_control',
+            'prompt': (
+                'Bạn là Nova, trợ lý giọng nói thông minh cho gia đình. '
+                'Trả lời bằng tiếng Việt ngắn gọn, súc tích (1-2 câu), tự nhiên.'
+            ),
+            'tts': {'voice': 'vi_VN-vais1000-medium', 'speed': 'standard'},
+            'llm': {'model': 'qwen2.5:3b-instruct'},
+            'integrations': {
+                'thingsboard': {
+                    'host': tb_host,
+                    'api_key': tb_key,
+                    'display_name': 'ThingsBoard IoT',
+                    'timeout_seconds': 10.0,
+                }
+            },
+            'devices': [],
+            'chats': [],
+            'memories': [],
+        }
+        store.put_agent(username, starter_agent)
+        logger.info('Seeded default agent %s for %r', agent_id, username)
+        return {'created_user': created_user, 'created_agent': True, 'username': username, 'agent_id': agent_id}
+
+    return {'created_user': created_user, 'created_agent': False, 'username': username}
+
+
 def main():
     parser = argparse.ArgumentParser(description='Manage platform console accounts')
-    parser.add_argument('action', choices=['create', 'reset-password'])
-    parser.add_argument('username')
+    parser.add_argument('action', choices=['create', 'reset-password', 'bootstrap'])
+    parser.add_argument('username', nargs='?')
     args = parser.parse_args()
+    store = AccountStore()
+    if args.action == 'bootstrap':
+        result = bootstrap_from_env(store)
+        print(
+            f"Bootstrap complete (created_user={result['created_user']}, "
+            f"created_agent={result['created_agent']})"
+        )
+        return
+    if not args.username:
+        parser.error('username is required')
     password = getpass.getpass('Password: ')
     if password != getpass.getpass('Confirm password: '):
         parser.error('Passwords do not match')
-    store = AccountStore()
     try:
         if args.action == 'create':
             store.create_user(args.username, password)

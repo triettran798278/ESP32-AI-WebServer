@@ -4,7 +4,7 @@
   "role": "Nova",
   "integrations": {
     "thingsboard": {
-      "host": "http://127.0.0.1:8080",
+      "host": "https://codehelpers.tech",
       "api_key": "",
       "timeout_seconds": 10.0
     }

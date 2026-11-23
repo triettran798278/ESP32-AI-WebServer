@@ -15,7 +15,7 @@ class IotDescriptor:
         self.properties = []
         self.methods = []
 
-        # 根据描述创建属性
+        # Create properties from description
         if properties is not None:
             for key, value in properties.items():
                 property_item = {}
@@ -29,13 +29,13 @@ class IotDescriptor:
                     property_item["value"] = ""
                 self.properties.append(property_item)
 
-        # 根据描述创建方法
+        # Create methods from description
         if methods is not None:
             for key, value in methods.items():
                 method = {}
                 method["description"] = value["description"]
                 method["name"] = key
-                # 检查方法是否有参数
+                # Check if method has parameters
                 if "parameters" in value:
                     method["parameters"] = {}
                     for k, v in value["parameters"].items():

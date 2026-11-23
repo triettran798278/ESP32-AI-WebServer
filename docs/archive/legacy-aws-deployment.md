@@ -1,10 +1,12 @@
-# Hướng Dẫn Triển Khai XiaoZhi AI Lên AWS (Amazon Web Services)
+# Triển khai XiaoZhi AI trên AWS
+
+> **Tài liệu lưu trữ.** Các lệnh và cấu hình dưới đây mô tả mô hình AI Gateway cũ trên cổng 8080. Để triển khai hệ thống hiện tại, xem [hướng dẫn triển khai cục bộ](../reproduce-deployment.md).
 
 Tài liệu này hướng dẫn chi tiết cách đưa toàn bộ hệ thống XiaoZhi AI lên máy chủ đám mây AWS với hiệu năng cao, bảo mật và chi phí tối ưu nhất.
 
 ---
 
-## 1. Kiến trúc hệ thống trên AWS
+## Kiến trúc hệ thống trên AWS
 
 Khi triển khai trên AWS, thiết bị ESP32 ở nhà sẽ kết nối qua Internet. Vì vậy, ta dựng **Nginx Reverse Proxy + SSL Let's Encrypt** để bảo mật kết nối qua đường truyền `wss://` (WebSocket Secure):
 
@@ -28,7 +30,7 @@ Khi triển khai trên AWS, thiết bị ESP32 ở nhà sẽ kết nối qua Int
 
 ---
 
-## 2. Thông số máy ảo EC2 khuyến nghị
+## Thông số máy ảo EC2 khuyến nghị
 
 | Thông số | Giá trị khuyến nghị | Ghi chú |
 | :--- | :--- | :--- |
@@ -40,9 +42,9 @@ Khi triển khai trên AWS, thiết bị ESP32 ở nhà sẽ kết nối qua Int
 
 ---
 
-## 3. Bước 1: Khởi tạo EC2 và Cấu hình Security Group
+## Khởi tạo EC2 và cấu hình security group
 
-### 3.1. Tạo EC2 trên AWS Console
+### Tạo EC2 trên AWS Console
 1. Đăng nhập AWS Console $\rightarrow$ dịch vụ **EC2** $\rightarrow$ **Launch Instance**.
 2. **Name**: `xiaozhi-ai-server`.
 3. **AMI**: Chọn **Ubuntu Server 22.04 LTS (HVM), SSD Volume Type**.
@@ -50,7 +52,7 @@ Khi triển khai trên AWS, thiết bị ESP32 ở nhà sẽ kết nối qua Int
 5. **Key pair**: Tạo hoặc chọn key pair `.pem` của bạn để SSH.
 6. **Storage**: Đổi từ `8 GiB` mặc định thành **`60 GiB gp3`**.
 
-### 3.2. Cấu hình Security Group (Tường lửa)
+### Cấu hình security group
 Thêm các Inbound Rules sau:
 
 | Type | Port Range | Source | Mục đích |
@@ -61,7 +63,7 @@ Thêm các Inbound Rules sau:
 
 ---
 
-## 4. Bước 2: Cài đặt Driver NVIDIA & Docker trên EC2
+## Cài đặt driver NVIDIA và Docker trên EC2
 
 SSH vào máy chủ EC2:
 ```bash
@@ -104,7 +106,7 @@ nvidia-smi
 
 ---
 
-## 5. Bước 3: Đưa Code lên EC2 & Khởi chạy
+## Đưa mã nguồn lên EC2 và khởi chạy
 
 Trên máy EC2, tạo thư mục dự án:
 ```bash
@@ -133,9 +135,9 @@ docker compose up -d --build
 
 ---
 
-## 6. Bước 4: Cài đặt XiaoZhi Server & Nginx SSL trên EC2
+## Cài đặt XiaoZhi Server và Nginx trên EC2
 
-### 6.1. Khởi chạy XiaoZhi Server (kết nối nội bộ tới Gateway 8080)
+### Khởi chạy XiaoZhi Server (kết nối nội bộ tới Gateway 8080)
 Tạo file `config.yaml` cho XiaoZhi server ngay trên EC2:
 ```yaml
 selected_module:
@@ -181,7 +183,7 @@ docker run -d \
   ghcr.io/xinnan-tech/xiaozhi-esp32-server:latest
 ```
 
-### 6.2. Cấu hình Nginx + SSL Let's Encrypt (Cổng 443 an toàn)
+### Cấu hình Nginx + SSL Let's Encrypt (Cổng 443 an toàn)
 Cài đặt Nginx và Certbot:
 ```bash
 sudo apt install -y nginx certbot python3-certbot-nginx
@@ -220,7 +222,7 @@ wss://xiaozhi.yourdomain.com/
 
 ---
 
-## 7. Mẹo tối ưu chi phí AWS (Cực kỳ quan trọng)
+## Tối ưu chi phí AWS
 
 1. **Gán Elastic IP tĩnh miễn phí**: Gán 1 Elastic IP cho EC2 để IP không bị đổi mỗi khi bạn Stop/Start máy ảo.
 2. **Dùng AWS Spot Instance**: Chọn loại Spot khi launch instance giúp giảm giá thuê từ `$0.52/h` xuống còn **`$0.15/h`** (tiết kiệm 70%).

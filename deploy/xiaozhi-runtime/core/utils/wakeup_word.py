@@ -35,8 +35,8 @@ class WakeupWordsConfig:
         self._ensure_directories()
         self._config_cache = None
         self._last_load_time = 0
-        self._cache_ttl = 1  # 缓存有效期（秒）
-        self._lock_timeout = 5  # 文件锁超时时间（秒）
+        self._cache_ttl = 1  # Cache TTL (seconds)
+        self._lock_timeout = 5  # File lock timeout (seconds)
 
     def _ensure_directories(self):
         """确保必要的目录存在"""
@@ -47,7 +47,7 @@ class WakeupWordsConfig:
         """加载配置文件，使用缓存机制"""
         current_time = time.time()
 
-        # 如果缓存有效，直接返回缓存
+        # Return cached config directly if still valid
         if (
             self._config_cache is not None
             and current_time - self._last_load_time < self._cache_ttl
@@ -93,7 +93,7 @@ class WakeupWordsConfig:
         if not config or voice not in config:
             return None
 
-        # 检查文件大小
+        # Check file size
         file_path = config[voice]["file_path"]
         if not os.path.exists(file_path) or os.stat(file_path).st_size < (15 * 1024):
             return None
@@ -103,7 +103,7 @@ class WakeupWordsConfig:
     def update_wakeup_response(self, voice: str, file_path: str, text: str):
         """更新唤醒词回复配置"""
         try:
-            # 过滤表情符号
+            # Filter out emoji characters
             filtered_text = re.sub(r'[\U0001F600-\U0001F64F\U0001F900-\U0001F9FF]', '', text)
             
             config = self._load_config()
@@ -122,11 +122,11 @@ class WakeupWordsConfig:
     def generate_file_path(self, voice: str) -> str:
         """生成音频文件路径，使用voice的哈希值作为文件名"""
         try:
-            # 生成voice的哈希值
+            # Generate hash of voice
             voice_hash = hashlib.md5(voice.encode()).hexdigest()
             file_path = os.path.join(self.assets_dir, f"{voice_hash}.wav")
 
-            # 如果文件已存在，先删除
+            # Remove existing file first if present
             if os.path.exists(file_path):
                 try:
                     os.remove(file_path)

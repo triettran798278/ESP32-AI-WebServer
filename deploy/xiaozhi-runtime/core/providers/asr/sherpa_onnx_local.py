@@ -17,7 +17,7 @@ TAG = __name__
 logger = setup_logging()
 
 
-# 捕获标准输出
+# Capture stdout
 class CaptureOutput:
     def __enter__(self):
         self._output = io.StringIO()
@@ -29,7 +29,7 @@ class CaptureOutput:
         self.output = self._output.getvalue()
         self._output.close()
 
-        # 将捕获到的内容通过 logger 输出
+        # Log captured output via logger
         if self.output:
             logger.bind(tag=TAG).info(self.output.strip())
 
@@ -40,19 +40,19 @@ class ASRProvider(ASRProviderBase):
         self.interface_type = InterfaceType.LOCAL
         self.model_dir = config.get("model_dir")
         self.output_dir = config.get("output_dir")
-        self.model_type = config.get("model_type", "sense_voice")  # 支持 paraformer
+        self.model_type = config.get("model_type", "sense_voice")  # Supports paraformer
         self.delete_audio_file = delete_audio_file
 
-        # 确保输出目录存在
+        # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
-        # 初始化模型文件路径
+        # Initialize model file paths
         model_files = {
             "model.int8.onnx": os.path.join(self.model_dir, "model.int8.onnx"),
             "tokens.txt": os.path.join(self.model_dir, "tokens.txt"),
         }
 
-        # 下载并检查模型文件
+        # Download and check model files
         try:
             for file_name, file_path in model_files.items():
                 if not os.path.isfile(file_path):
@@ -126,7 +126,7 @@ class ASRProvider(ASRProviderBase):
         """语音转文本主处理逻辑"""
         file_path = None
         try:
-            # 保存音频文件
+            # Save audio file
             start_time = time.time()
             if audio_format == "pcm":
                 pcm_data = opus_data
@@ -137,7 +137,7 @@ class ASRProvider(ASRProviderBase):
                 f"音频文件保存耗时: {time.time() - start_time:.3f}s | 路径: {file_path}"
             )
 
-            # 语音识别
+            # Speech recognition
             start_time = time.time()
             s = self.model.create_stream()
             samples, sample_rate = self.read_wave(file_path)
@@ -154,7 +154,7 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).error(f"语音识别失败: {e}", exc_info=True)
             return "", file_path
         finally:
-            # 文件清理逻辑
+            # File cleanup logic
             if self.delete_audio_file and file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)

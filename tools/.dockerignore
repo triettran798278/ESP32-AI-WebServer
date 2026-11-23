@@ -1,0 +1,6 @@
+*
+!tasmota-simulator.Dockerfile
+!tasmota-bridge.Dockerfile
+!requirements.txt
+!virtual_tasmota.py
+!tasmota_bridge.py

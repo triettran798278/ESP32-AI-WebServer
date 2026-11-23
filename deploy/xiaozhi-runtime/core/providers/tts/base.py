@@ -86,7 +86,7 @@ class TTSProviderBase(ABC):
         text = MarkdownCleaner.clean_markdown(text)
         max_repeat_time = 5
         if self.delete_audio_file:
-            # 需要删除文件的直接转为音频数据
+            # Convert directly to audio data when file deletion is enabled
             while max_repeat_time > 0:
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
@@ -125,7 +125,7 @@ class TTSProviderBase(ABC):
                         logger.bind(tag=TAG).warning(
                             f"语音生成失败{5 - max_repeat_time + 1}次: {text}，错误: {e}"
                         )
-                        # 未执行成功，删除文件
+                        # Remove file on failure
                         if os.path.exists(tmp_file):
                             os.remove(tmp_file)
                         max_repeat_time -= 1
@@ -148,7 +148,7 @@ class TTSProviderBase(ABC):
         text = MarkdownCleaner.clean_markdown(text)
         max_repeat_time = 5
         if self.delete_audio_file:
-            # 需要删除文件的直接转为音频数据
+            # Convert directly to audio data when file deletion is enabled
             while max_repeat_time > 0:
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
@@ -187,7 +187,7 @@ class TTSProviderBase(ABC):
                         logger.bind(tag=TAG).warning(
                             f"语音生成失败{5 - max_repeat_time + 1}次: {text}，错误: {e}"
                         )
-                        # 未执行成功，删除文件
+                        # Remove file on failure
                         if os.path.exists(tmp_file):
                             os.remove(tmp_file)
                         max_repeat_time -= 1
@@ -237,7 +237,7 @@ class TTSProviderBase(ABC):
             else:
                 sentence_id = str(uuid.uuid4().hex)
                 conn.sentence_id = sentence_id
-        # 对于单句的文本，进行分段处理
+        # Split single-sentence text into segments
         segments = re.split(r"([。！？!?；;\n])", content_detail)
         for seg in segments:
             self.tts_text_queue.put(
@@ -252,20 +252,20 @@ class TTSProviderBase(ABC):
 
     async def open_audio_channels(self, conn):
         self.conn = conn
-        # tts 消化线程
+        # TTS consumer thread
         self.tts_priority_thread = threading.Thread(
             target=self.tts_text_priority_thread, daemon=True
         )
         self.tts_priority_thread.start()
 
-        # 音频播放 消化线程
+        # Audio playback consumer thread
         self.audio_play_priority_thread = threading.Thread(
             target=self._audio_play_priority_thread, daemon=True
         )
         self.audio_play_priority_thread.start()
 
-    # 这里默认是非流式的处理方式
-    # 流式处理方式请在子类中重写
+    # Non-streaming processing by default
+    # Override in subclasses for streaming processing
     def tts_text_priority_thread(self):
         while not self.conn.stop_event.is_set():
             try:
@@ -276,7 +276,7 @@ class TTSProviderBase(ABC):
                     logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
                     continue
                 if message.sentence_type == SentenceType.FIRST:
-                    # 初始化参数
+                    # Initialize parameters
                     self.tts_stop_request = False
                     self.processed_chars = 0
                     self.tts_text_buff = []
@@ -309,7 +309,7 @@ class TTSProviderBase(ABC):
                 continue
 
     def _audio_play_priority_thread(self):
-        # 需要上报的文本和音频列表
+        # Text and audio list to report
         enqueue_text = None
         enqueue_audio = None
         while not self.conn.stop_event.is_set():
@@ -329,26 +329,26 @@ class TTSProviderBase(ABC):
                     enqueue_text, enqueue_audio = None, []
                     continue
 
-                # 收到下一个文本开始或会话结束时进行上报
+                # Report when next text starts or session ends
                 if sentence_type is not SentenceType.MIDDLE:
-                    # 上报TTS数据
+                    # Report TTS data
                     if enqueue_text is not None and enqueue_audio is not None:
                         enqueue_tts_report(self.conn, enqueue_text, enqueue_audio)
                     enqueue_audio = []
                     enqueue_text = text
 
-                # 收集上报音频数据
+                # Collect audio data for reporting
                 if isinstance(audio_datas, bytes) and enqueue_audio is not None:
                     enqueue_audio.append(audio_datas)
 
-                # 发送音频
+                # Send audio
                 future = asyncio.run_coroutine_threadsafe(
                     sendAudioMessage(self.conn, sentence_type, audio_datas, text),
                     self.conn.loop,
                 )
                 future.result()
 
-                # 记录输出和报告
+                # Record output and report
                 if self.conn.max_output_size > 0 and text:
                     add_device_output(self.conn.headers.get("device-id"), len(text))
 
@@ -367,12 +367,12 @@ class TTSProviderBase(ABC):
             await self.ws.close()
 
     def _get_segment_text(self):
-        # 合并当前全部文本并处理未分割部分
+        # Merge current text and process unsegmented part
         full_text = "".join(self.tts_text_buff)
-        current_text = full_text[self.processed_chars :]  # 从未处理的位置开始
+        current_text = full_text[self.processed_chars :]  # Start from unprocessed position
         last_punct_pos = -1
 
-        # 根据是否是第一句话选择不同的标点符号集合
+        # Choose punctuation set based on whether this is the first sentence
         punctuations_to_use = (
             self.first_sentence_punctuations
             if self.is_first_sentence
@@ -391,16 +391,16 @@ class TTSProviderBase(ABC):
             segment_text = textUtils.get_string_no_punctuation_or_emoji(
                 segment_text_raw
             )
-            self.processed_chars += len(segment_text_raw)  # 更新已处理字符位置
+            self.processed_chars += len(segment_text_raw)  # Update processed char position
 
-            # 如果是第一句话，在找到第一个逗号后，将标志设置为False
+            # For the first sentence, set flag to False after finding the first comma
             if self.is_first_sentence:
                 self.is_first_sentence = False
 
             return segment_text
         elif self.tts_stop_request and current_text:
             segment_text = current_text
-            self.is_first_sentence = True  # 重置标志
+            self.is_first_sentence = True  # Reset flag
             return segment_text
         else:
             return None

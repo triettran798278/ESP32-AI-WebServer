@@ -9,43 +9,43 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
-        self.agent_id = config.get("agent_id")  # 对应 agent_id
+        self.agent_id = config.get("agent_id")  # Corresponding agent_id
         self.api_key = config.get("api_key")
-        self.base_url = config.get("base_url", config.get("url"))  # 默认使用 base_url
-        self.api_url = f"{self.base_url}/api/conversation/process"  # 拼接完整的 API URL
+        self.base_url = config.get("base_url", config.get("url"))  # Default to base_url
+        self.api_url = f"{self.base_url}/api/conversation/process"  # Build full API URL
 
     def response(self, session_id, dialogue, **kwargs):
         try:
-            # home assistant语音助手自带意图，无需使用xiaozhi ai自带的，只需要把用户说的话传递给home assistant即可
+            # Home Assistant handles intents natively, so just forward the user's utterance
 
-            # 提取最后一个 role 为 'user' 的 content
+            # Extract content of the last message with role 'user'
             input_text = None
-            if isinstance(dialogue, list):  # 确保 dialogue 是一个列表
-                # 逆序遍历，找到最后一个 role 为 'user' 的消息
+            if isinstance(dialogue, list):  # Ensure dialogue is a list
+                # Traverse in reverse to find the last message with role 'user'
                 for message in reversed(dialogue):
-                    if message.get("role") == "user":  # 找到 role 为 'user' 的消息
+                    if message.get("role") == "user":  # Found message with role 'user'
                         input_text = message.get("content", "")
-                        break  # 找到后立即退出循环
+                        break  # Exit loop immediately once found
 
-            # 构造请求数据
+            # Build request payload
             payload = {
                 "text": input_text,
                 "agent_id": self.agent_id,
-                "conversation_id": session_id,  # 使用 session_id 作为 conversation_id
+                "conversation_id": session_id,  # Use session_id as conversation_id
             }
-            # 设置请求头
+            # Set request headers
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             }
 
-            # 发起 POST 请求
+            # Send POST request
             response = requests.post(self.api_url, json=payload, headers=headers)
 
-            # 检查请求是否成功
+            # Check if request succeeded
             response.raise_for_status()
 
-            # 解析返回数据
+            # Parse response data
             data = response.json()
             speech = (
                 data.get("response", {})
@@ -54,7 +54,7 @@ class LLMProvider(LLMProviderBase):
                 .get("speech", "")
             )
 
-            # 返回生成的内容
+            # Return generated content
             if speech:
                 yield speech
             else:

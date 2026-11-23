@@ -45,7 +45,7 @@ class AuthManager:
         ts = int(time.time())
         content = f"{client_id}|{username}|{ts}"
         signature = self._sign(content)
-        # token仅包含签名与时间戳，不包含明文信息
+        # Token contains only signature and timestamp, no plaintext info
         token = f"{signature}.{ts}"
         return token
 
@@ -61,7 +61,7 @@ class AuthManager:
             sig_part, ts_str = token.split(".")
             ts = int(ts_str)
             if int(time.time()) - ts > self.expire_seconds:
-                return False  # 过期
+                return False  # Expired
 
             expected_sig = self._sign(f"{client_id}|{username}|{ts}")
             if not hmac.compare_digest(sig_part, expected_sig):

@@ -20,10 +20,10 @@ class LLMProvider(LLMProviderBase):
 
     def response(self, session_id, dialogue, **kwargs):
         try:
-            # 取最后一条用户消息
+            # Get the last user message
             last_msg = next(m for m in reversed(dialogue) if m["role"] == "user")
 
-            # 发起流式请求
+            # Send streaming request
             with requests.post(
                 f"{self.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {self.api_key}"},

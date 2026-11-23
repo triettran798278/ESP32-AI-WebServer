@@ -28,10 +28,10 @@ class ContextDataProvider:
 
             try:
                 headers = headers.copy() if isinstance(headers, dict) else {}
-                # 将 device_id 添加到请求头
+                # Add device_id to request headers
                 headers["device-id"] = device_id
                 
-                # 发送请求
+                # Send request
                 response = httpx.get(url, headers=headers, timeout=3)
                 
                 if response.status_code == 200:
@@ -39,7 +39,7 @@ class ContextDataProvider:
                     if isinstance(result, dict):
                         if result.get("code") == 0:
                             data = result.get("data")
-                            # 格式化数据
+                            # Format data
                             if isinstance(data, dict):
                                 for k, v in data.items():
                                     formatted_lines.append(f"- **{k}：** {v}")
@@ -57,7 +57,7 @@ class ContextDataProvider:
             except Exception as e:
                 self.logger.bind(tag=TAG).error(f"获取上下文数据 {url} 失败: {e}")
         
-        # 将所有格式化后的行拼接成一个字符串
+        # Join all formatted lines into a single string
         self.context_data = "\n".join(formatted_lines)
         if self.context_data:
             self.logger.bind(tag=TAG).debug(f"已注入动态上下文数据:\n{self.context_data}")

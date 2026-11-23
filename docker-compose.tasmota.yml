@@ -11,8 +11,8 @@ services:
 
   tasmota-a:
     build:
-      context: .
-      dockerfile: tools/tasmota-simulator.Dockerfile
+      context: ./tools
+      dockerfile: tasmota-simulator.Dockerfile
     environment: &simulator-env
       MQTT_HOST: mqtt
       MQTT_USERNAME: ${MQTT_USERNAME:?Set MQTT_USERNAME}
@@ -28,8 +28,8 @@ services:
 
   tasmota-b:
     build:
-      context: .
-      dockerfile: tools/tasmota-simulator.Dockerfile
+      context: ./tools
+      dockerfile: tasmota-simulator.Dockerfile
     environment:
       <<: *simulator-env
       TASMOTA_TOPIC: relay-b
@@ -40,8 +40,8 @@ services:
   thingsboard-bridge:
     profiles: ["thingsboard"]
     build:
-      context: .
-      dockerfile: tools/tasmota-bridge.Dockerfile
+      context: ./tools
+      dockerfile: tasmota-bridge.Dockerfile
     environment:
       MQTT_HOST: mqtt
       MQTT_USERNAME: ${MQTT_USERNAME:?Set MQTT_USERNAME}

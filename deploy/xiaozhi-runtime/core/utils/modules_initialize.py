@@ -27,13 +27,13 @@ def initialize_modules(
     """
     modules = {}
 
-    # 初始化TTS模块
+    # Initialize TTS module
     if init_tts:
         select_tts_module = config["selected_module"]["TTS"]
         modules["tts"] = initialize_tts(config)
         logger.bind(tag=TAG).info(f"初始化组件: tts成功 {select_tts_module}")
 
-    # 初始化LLM模块
+    # Initialize LLM module
     if init_llm:
         select_llm_module = config["selected_module"]["LLM"]
         llm_type = (
@@ -47,7 +47,7 @@ def initialize_modules(
         )
         logger.bind(tag=TAG).info(f"初始化组件: llm成功 {select_llm_module}")
 
-    # 初始化Intent模块
+    # Initialize Intent module
     if init_intent:
         select_intent_module = config["selected_module"]["Intent"]
         intent_type = (
@@ -61,7 +61,7 @@ def initialize_modules(
         )
         logger.bind(tag=TAG).info(f"初始化组件: intent成功 {select_intent_module}")
 
-    # 初始化Memory模块
+    # Initialize Memory module
     if init_memory:
         select_memory_module = config["selected_module"]["Memory"]
         memory_type = (
@@ -76,7 +76,7 @@ def initialize_modules(
         )
         logger.bind(tag=TAG).info(f"初始化组件: memory成功 {select_memory_module}")
 
-    # 初始化VAD模块
+    # Initialize VAD module
     if init_vad:
         select_vad_module = config["selected_module"]["VAD"]
         vad_type = (
@@ -90,7 +90,7 @@ def initialize_modules(
         )
         logger.bind(tag=TAG).info(f"初始化组件: vad成功 {select_vad_module}")
 
-    # 初始化ASR模块
+    # Initialize ASR module
     if init_asr:
         select_asr_module = config["selected_module"]["ASR"]
         modules["asr"] = initialize_asr(config)
@@ -135,7 +135,7 @@ def initialize_voiceprint(asr_instance, config):
     if not voiceprint_config:
         return False  
 
-    # 应用配置
+    # Apply configuration
     if not voiceprint_config.get("url") or not voiceprint_config.get("speakers"):
         logger.bind(tag=TAG).warning("声纹识别配置不完整")
         return False

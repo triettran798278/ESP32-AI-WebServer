@@ -25,12 +25,12 @@ class TTSProvider(TTSProviderBase):
         self.audio_format = "pcm"
         self.before_stop_play_files = []
 
-        # 创建Opus编码器
+        # Create Opus encoder
         self.opus_encoder = opus_encoder_utils.OpusEncoderUtils(
             sample_rate=16000, channels=1, frame_size_ms=60
         )
 
-        # PCM缓冲区
+        # PCM buffer
         self.pcm_buffer = bytearray()
 
     def tts_text_priority_thread(self):
@@ -39,7 +39,7 @@ class TTSProvider(TTSProviderBase):
             try:
                 message = self.tts_text_queue.get(timeout=1)
                 if message.sentence_type == SentenceType.FIRST:
-                    # 初始化参数
+                    # Initialize parameters
                     self.tts_stop_request = False
                     self.processed_chars = 0
                     self.tts_text_buff = []
@@ -55,10 +55,10 @@ class TTSProvider(TTSProviderBase):
                         f"添加音频文件到待播放列表: {message.content_file}"
                     )
                     if message.content_file and os.path.exists(message.content_file):
-                        # 先处理文件音频数据
+                        # Process file audio data first
                         self._process_audio_file_stream(message.content_file, callback=lambda audio_data: self.handle_audio_file(audio_data, message.content_detail))
                 if message.sentence_type == SentenceType.LAST:
-                    # 处理剩余的文本
+                    # Process remaining text
                     self._process_remaining_text_stream(True)
 
             except queue.Empty:
@@ -136,7 +136,7 @@ class TTSProvider(TTSProviderBase):
             "Content-Type": "application/json",
         }
 
-        # 一帧 PCM 所需字节数：60 ms &times; 16 kHz &times; 1 ch &times; 2 B = 1 920
+        # Bytes per PCM frame: 60 ms * 16 kHz * 1 ch * 2 B = 1920
         frame_bytes = int(
             self.opus_encoder.sample_rate
             * self.opus_encoder.channels  # 1
@@ -161,16 +161,16 @@ class TTSProvider(TTSProviderBase):
                     self.pcm_buffer.clear()
                     self.tts_audio_queue.put((SentenceType.FIRST, [], text))
 
-                    # 兼容 iter_chunked / iter_chunks / iter_any
+                    # Compatible with iter_chunked / iter_chunks / iter_any
                     async for chunk in resp.content.iter_any():
                         data = chunk[0] if isinstance(chunk, (list, tuple)) else chunk
                         if not data:
                             continue
 
-                        # 拼到 buffer
+                        # Append to buffer
                         self.pcm_buffer.extend(data)
 
-                        # 够一帧就编码
+                        # Encode once a full frame is available
                         while len(self.pcm_buffer) >= frame_bytes:
                             frame = bytes(self.pcm_buffer[:frame_bytes])
                             del self.pcm_buffer[:frame_bytes]
@@ -181,7 +181,7 @@ class TTSProvider(TTSProviderBase):
                                 callback=self.handle_opus
                             )
 
-                    # flush 剩余不足一帧的数据
+                    # Flush remaining data smaller than one frame
                     if self.pcm_buffer:
                         self.opus_encoder.encode_pcm_to_opus_stream(
                             bytes(self.pcm_buffer),
@@ -190,7 +190,7 @@ class TTSProvider(TTSProviderBase):
                         )
                         self.pcm_buffer.clear()
 
-                    # 如果是最后一段，输出音频获取完毕
+                    # If last segment, finish audio output
                     if is_last:
                         self._process_before_stop_play_files()
 
@@ -234,11 +234,11 @@ class TTSProvider(TTSProviderBase):
 
                 logger.info(f"TTS请求成功: {text}, 耗时: {time.time() - start_time}秒")
 
-                # 使用opus编码器处理PCM数据
+                # Encode PCM data with Opus encoder
                 opus_datas = []
                 pcm_data = response.content
 
-                # 计算每帧的字节数
+                # Calculate bytes per frame
                 frame_bytes = int(
                     self.opus_encoder.sample_rate
                     * self.opus_encoder.channels
@@ -247,11 +247,11 @@ class TTSProvider(TTSProviderBase):
                     * 2
                 )
 
-                # 分帧处理PCM数据
+                # Process PCM data frame by frame
                 for i in range(0, len(pcm_data), frame_bytes):
                     frame = pcm_data[i : i + frame_bytes]
                     if len(frame) < frame_bytes:
-                        # 最后一帧可能不足，用0填充
+                        # Pad last frame with 0 if incomplete
                         frame = frame + b"\x00" * (frame_bytes - len(frame))
 
                     self.opus_encoder.encode_pcm_to_opus_stream(

@@ -40,7 +40,7 @@ class ServerMCPClient:
         self._shutdown_evt = asyncio.Event()
 
         self.session: Optional[ClientSession] = None
-        self.tools: List = []  # 原始工具对象
+        self.tools: List = []  # Raw tool objects
         self.tools_dict: Dict[str, Any] = {}
         self.name_mapping: Dict[str, str] = {}
 
@@ -147,19 +147,19 @@ class ServerMCPClient:
         Returns:
             bool: 如果客户端已连接并正常工作，返回True，否则返回False
         """
-        # 检查工作任务是否存在
+        # Check if worker task exists
         if self._worker_task is None:
             return False
 
-        # 检查工作任务是否已经完成或取消
+        # Check if worker task is done or cancelled
         if self._worker_task.done():
             return False
 
-        # 检查会话是否存在
+        # Check if session exists
         if self.session is None:
             return False
 
-        # 所有检查都通过，连接正常
+        # All checks passed, connection is healthy
         return True
 
     async def _worker(self, read_timeout_seconds: timedelta | None = None,
@@ -172,7 +172,7 @@ class ServerMCPClient:
         """MCP客户端工作协程"""
         async with AsyncExitStack() as stack:
             try:
-                # 建立 StdioClient
+                # Create StdioClient
                 if "command" in self.config:
                     cmd = (
                         shutil.which("npx")
@@ -190,19 +190,19 @@ class ServerMCPClient:
                     )
                     read_stream, write_stream = stdio_r, stdio_w
 
-                # 建立SSEClient
+                # Create SSEClient
                 elif "url" in self.config:
                     headers = dict(self.config.get("headers", {}))
-                    # TODO 兼容旧版本
+                    # TODO: Backward compatibility for legacy config
                     if "API_ACCESS_TOKEN" in self.config:
                         headers["Authorization"] = f"Bearer {self.config['API_ACCESS_TOKEN']}"
                         self.logger.bind(tag=TAG).warning(f"你正在使用旧过时的配置 API_ACCESS_TOKEN ，请在.mcp_server_settings.json中将API_ACCESS_TOKEN直接设置在headers中，例如 'Authorization': 'Bearer API_ACCESS_TOKEN'")
                    
-                    # 根据transport类型选择不同的客户端，默认为SSE
+                    # Select client based on transport type (defaults to SSE)
                     transport_type = self.config.get("transport", "sse")
 
                     if transport_type == "streamable-http" or transport_type == "http":
-                        # 使用 Streamable HTTP 传输
+                        # Use Streamable HTTP transport
                         http_r, http_w, get_session_id = await stack.enter_async_context(
                             streamablehttp_client(
                                 url=self.config["url"],
@@ -214,7 +214,7 @@ class ServerMCPClient:
                         )
                         read_stream, write_stream = http_r, http_w
                     else:
-                        # 使用传统的 SSE 传输
+                        # Use legacy SSE transport
                         sse_r, sse_w = await stack.enter_async_context(
                             sse_client(
                                 url=self.config["url"],
@@ -243,7 +243,7 @@ class ServerMCPClient:
                 )
                 await self.session.initialize()
 
-                # 获取工具
+                # Fetch tools
                 self.tools = (await self.session.list_tools()).tools
                 for t in self.tools:
                     sanitized = sanitize_tool_name(t.name)
@@ -252,7 +252,7 @@ class ServerMCPClient:
 
                 self._ready_evt.set()
 
-                # 挂起等待关闭
+                # Suspend until shutdown
                 await self._shutdown_evt.wait()
 
             except Exception as e:

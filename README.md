@@ -22,8 +22,8 @@ Giao diện quản lý đa agent trực quan, cấu hình linh hoạt từng Age
 ![XiaoZhi Multi-Agent Web Console](docs/images/xiaozhi-agent-console-overview.png)
 
 ### 2. Mô Hình Kiến Trúc Tích Hợp Model Context Protocol (MCP)
-Toàn bộ luồng kết nối giữa thiết bị ESP32, XiaoZhi WebSocket Server, MCP Gateway, ThingsBoard MCP và CoreIoT Platform:
-![ThingsBoard MCP Architecture](docs/images/mcp-architecture-graph.jpg)
+Sơ đồ minh họa khái niệm XiaoZhi MCP từ bản gốc upstream ([`firmware/docs/mcp-based-graph.jpg`](firmware/docs/mcp-based-graph.jpg) — mô tả luồng lịch sử phía thiết bị và MCP đám mây; hệ thống triển khai hiện tại định tuyến qua `platform-bridge` cổng 8005 và `thingsboard-mcp`):
+![Historical XiaoZhi MCP Concept Illustration](docs/images/mcp-architecture-graph.jpg)
 
 ### 3. Sơ Đồ Đấu Nối Phần Cứng YOLO UNO & Cảm Biến Âm Thanh
 Bảng sơ đồ chân I2S cho vi điều khiển YOLO UNO (ESP32-S3), microphone MEMS INMP441 và mạch khuếch đại âm thanh MAX98357A:
@@ -69,115 +69,64 @@ bridge on port 8005.
 
 ---
 
-## 📁 Cấu Trúc Thư Mục (Project Structure)
+## Project index
 
-```
-ESP32-AI-WebServer/
-├── docker-compose.yml          # Điều phối 5 container cơ bản (Ollama, Whisper, Piper, MCP-Gateway, Gateway)
-├── docker-compose.deploy.yml   # Điều phối các dịch vụ Platform (Platform-Bridge, ThingsBoard-MCP, XiaoZhi)
-├── start_all.bat               # Script 1-Click khởi chạy và tải model trên Windows
-├── run_mic_test.bat            # Script 1-Click bật trợ lý giọng nói Real-Time rảnh tay trên Laptop
-├── mic_test.py                 # Trợ lý giọng nói Real-Time (Auto VAD + SSE Streaming + Context Memory)
-├── agent_profile.json          # Cấu hình hồ sơ Agent chia sẻ cho ThingsBoard MCP
-│
-├── scripts/                    # Scripts tiện ích / khởi tạo
-│   ├── init_models.bat         # Script tải model tiếng Việt & pull Qwen (Windows)
-│   └── init_models.sh          # Script tải model tiếng Việt & pull Qwen (Linux)
-├── docs/                       # Toàn bộ tài liệu hướng dẫn, bàn giao & sơ đồ hệ thống
-│   ├── HANDOFF.md              # Tài liệu bàn giao kỹ thuật toàn trình (Full System Handoff)
-│   ├── TASMOTA_THINGSBOARD_HANDOFF.md # Hướng dẫn kết nối Tasmota ↔ ThingsBoard (2 chiều)
-│   ├── XIAOZHI_CONFIG.md       # Mẫu cấu hình XiaoZhi Server (YAML & JSON)
-│   ├── DEPLOY_MACHINE_B.md     # Hướng dẫn kết nối từ máy Linux khác
-│   ├── DEPLOY_AWS.md           # Hướng dẫn đưa toàn bộ hệ thống lên máy chủ AWS EC2
-│   ├── spec-alpha-0.2.md       # Đặc tả kỹ thuật Provisioning Alpha 0.2
-│   └── images/                 # Ảnh chụp màn hình và sơ đồ hệ thống
-├── data/                       # Dữ liệu cấu hình Agent cục bộ (agents.json)
-├── deploy/                     # Cấu hình runtime mount cho Docker deploy (platform-data, xiaozhi-data)
-├── xiaozhi-console/            # Frontend Web Console (React + TypeScript + Tailwind + Lucide)
-├── platform-bridge/            # Platform Bridge FastAPI Server (Port 8005) & Embedded Console Dist
-├── thingsboard-mcp/            # Dedicated ThingsBoard Model Context Protocol (MCP) Server (Port 8009)
-├── firmware/                   # Mã nguồn C++ ESP32 firmware với platform provisioning & NVS
-├── services/                   # Module MCP Agent Gateway & MCP Server
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── mcp_gateway.py          # FastAPI Gateway điều phối Tool Calling với Ollama
-│   └── mcp_server.py           # FastMCP Server định nghĩa tools (Time GMT+7, Weather, Device)
-├── gateway/                    # Mã nguồn Unified AI Gateway (Port 8080)
-│   ├── Dockerfile
-│   └── server.py
-├── faster-whisper/             # CTranslate2 STT Server tương thích OpenAI
-│   ├── Dockerfile.cpu
-│   └── server.py
-├── piper/                      # Piper TTS Engine
-│   └── src/python_run/
-│       ├── Dockerfile
-│       └── server.py
-├── piper-models/               # (Git ignored) Chứa voice ONNX tiếng Việt
-└── whisper-models/             # (Git ignored) Cache model Whisper small int8
-```
+Start here to find a workflow, the code that owns it, or the files it uses. See the [documentation index](docs/README.md) for guides and writing conventions, or [AGENTS.md](AGENTS.md) for contributor instructions.
+
+### Workflows
+
+| Workflow | Start here | What it uses |
+| --- | --- | --- |
+| Main platform and ESP32 provisioning | [Core Compose](docker-compose.yml), optionally with the [CPU override](docker-compose.cpu.yml), then [platform Compose](docker-compose.deploy.yml) | The platform bridge serves the console and proxies device WebSockets to the XiaoZhi runtime. The bridge and runtime call speech and MCP services directly. |
+| React console development | [Console package](xiaozhi-console/package.json) | Vite serves the React source. The deployed bridge serves the tracked bundle under `platform-bridge/console_dist/`. |
+| YOLO UNO and other ESP32 boards | [Firmware guide](firmware/README_en.md), [board definitions](firmware/main/boards/), [hardware tools](firmware/scripts/) | ESP-IDF builds using the selected board configuration. See the deployment guide for the YOLO UNO OTA fallback. [`firmware/scripts/flash.sh`](firmware/scripts/flash.sh) is a historical upstream helper targeting a hardcoded `v0.9.9_bread-compact-wifi` binary rather than local `idf.py` builds. |
+| Device workbench and apartment demo | [Workbench Compose](docker-compose.simulator.yml), [apartment demo script](scripts/apartment_demo.sh) | Separate simulator workflow. The workbench receives its private device file through `DEVICE_WORKBENCH_CONFIG`. |
+| Tasmota MQTT simulation and ThingsBoard RPC | [Tasmota Compose](docker-compose.tasmota.yml), [RPC contract](docs/thingsboard-rpc-contract.md), [standalone launcher](start-tasmota-sim.sh) | The simulator uses Python tools and Mosquitto. The optional ThingsBoard bridge uses the `thingsboard` profile. |
+| Physical Tasmota board | [ESP32-S3 setup and customization](Tasmota/InnoLux_Tasmota_ESP32S3_Setup_Guide.md), [ThingsBoard setup](docs/tasmota-thingsboard-setup.md) | The checked-in Tasmota tree contains the hardware firmware, PlatformIO settings, and Berry script. |
+| Unified gateway and laptop microphone | [Gateway implementation](gateway/server.py), [mic client](mic_test.py) | Compatibility workflow from the earlier standalone Windows gateway setup (`start_all.bat`, `run_mic_test.bat`, `scripts/init_models.bat`). Core Compose runs `gateway` on internal port 8080; `mic_test.py` requires a reachable `GATEWAY_URL`. |
+
+### Where the code lives
+
+| Area | Paths |
+| --- | --- |
+| Accounts, provisioning, console hosting, and device WebSocket proxy | [`platform-bridge/`](platform-bridge/), with [account and device setup](docs/multi-user-auth.md) |
+| Console UI, API client, and assets | [`xiaozhi-console/src/`](xiaozhi-console/src/), with shared UI in [`src/components/`](xiaozhi-console/src/components/) |
+| XiaoZhi server, conversation handling, and provider configuration | [`deploy/xiaozhi-runtime/`](deploy/xiaozhi-runtime/), the image source for the deployed `xiaozhi-server` container |
+| LLM routing, tool calls, and legacy console | [`services/`](services/), with [`mcp_gateway.py`](services/mcp_gateway.py) as the container entry point |
+| ThingsBoard integration and standalone MCP server | [`thingsboard-mcp/`](thingsboard-mcp/), with the client and tools in [`src/`](thingsboard-mcp/src/) |
+| Speech-to-text and text-to-speech | [`faster-whisper/`](faster-whisper/) and [`piper/src/python_run/`](piper/src/python_run/) |
+| Hardware and board-specific code | [`firmware/main/`](firmware/main/) and [`Tasmota/`](Tasmota/) |
+| Device simulation and diagnostic tools | [`tools/`](tools/), plus the legacy [`platform-bridge/static_test/`](platform-bridge/static_test/) browser tester (compatibility/historical reference; not mounted alongside the React console or enabled in multi-user mode) |
+| Setup and demo orchestration | [`scripts/`](scripts/), plus [`start-tasmota-sim.sh`](start-tasmota-sim.sh) and the legacy Windows compatibility launchers ([`start_all.bat`](start_all.bat), [`run_mic_test.bat`](run_mic_test.bat), [`scripts/init_models.bat`](scripts/init_models.bat)) |
+| Integration tests and component tests | [`tests/`](tests/) and [`thingsboard-mcp/tests/`](thingsboard-mcp/tests/) |
+| Guides, plans, and shared diagrams | [`docs/`](docs/), with component-specific docs alongside their source. Local OpenSpec work is under `openspec/`. |
+
+### Local state and build output
+
+| Paths | Purpose and cleanup rule |
+| --- | --- |
+| `.env*`, local device credential files | Private machine configuration. [`.env.example`](.env.example) is the tracked template. Keep credentials and device tokens out of Git. |
+| `iot_platform_data` (`PLATFORM_DATA_VOLUME`), `deploy/xiaozhi-data/`, Docker volumes (`ollama-data`, optional `tasmota-bridge-data`, `capability-data`) | **Compose state.** `iot_platform_data` mounts at `/app/data` in `platform-bridge` (`accounts.db`, `devices.db`, `capabilities.sqlite3`, `agents.json`) and survives repo re-clones (`deploy/platform-data/` holds only pre-volume local backups/migrations). `deploy/xiaozhi-data/` mounts at `/app/data` in `xiaozhi-server` (`.config.yaml`, `.mcp_server_settings.json`). Back up persistent data before moving it. |
+| `data/` | **Host data.** Default `PLATFORM_DATA_DIR` when `platform-bridge` runs directly on the host outside Docker (`accounts.db`, `devices.db`, `capabilities.sqlite3`, `agents.json`). Keep separate from the `iot_platform_data` Compose volume. |
+| `agent_profile.json` | **MCP profile export.** Written in the bridge working directory by `PlatformStore.sync_to_agent_profile_json()` on agent updates and read by default by standalone `thingsboard-mcp`. Not bind-mounted into the deployed `platform-bridge` container, which passes per-agent credentials in-process. |
+| `whisper-models/`, `piper-models/` | Model files mounted by the default speech services. Keep them available for the services that use them. |
+| `platform-bridge/console_dist/` | Tracked console bundle served by the bridge. `xiaozhi-console/dist/` is the local fallback build. |
+| `firmware/sdkconfig`, `firmware/build*/`, `firmware/managed_components/` | Local ESP-IDF configuration, build artifacts, and downloaded dependencies. Keep selected configurations, flash and provisioning images, and any local dependency edits. |
+| `thingsboard/`, `xiaozhi-server/` | Local upstream trees ignored by the main repo. Preserve local source changes and outputs still referenced by a launcher or container. Separate Git metadata for local upstream trees lives in `.git/upstreams/` in this workspace. |
+| `node_modules/`, Maven `target/`, frontend caches, `.git/build-cache/`, `__pycache__/` | Build and dependency locations. Check mounts, launchers, and local modifications before clearing them. The build cache under `.git/` is separate from Git's object database. |
+| `.agents/`, `openspec/`, `.archify/`, local audio recordings | Local tooling, specs, generated diagrams, and recordings. Review these as individual work products before removing them. |
+
+Put new code beside the component that owns it. Use `scripts/` for setup and orchestration, `tools/` for operator and simulator tooling, `tests/` for cross-component tests, and `docs/` for shared guides and images. Keep generated output in the owning tool's build directory and put persistent deployment state in the configured data mounts. Update this index when a workflow gains an entry point or a top-level directory.
 
 ---
 
 ## 🚀 Setup on another machine
 
-The supported deployment uses Linux x86-64, Docker Engine and Docker Compose.
-An NVIDIA GPU and NVIDIA Container Toolkit are optional; use the CPU override
-below without them. The first build and model downloads require internet access
-and several gigabytes of disk space. The deployment builds the XiaoZhi server
-and bridge from this repository.
+The supported deployment targets Linux x86-64 with Docker Engine and Docker Compose (with an optional CPU-only override when no NVIDIA GPU is available). First-time installation, `.env` configuration, model downloads, native ThingsBoard dashboard setup, YOLO UNO firmware OTA fallback notes, and data backup/migration live in the canonical guide:
 
-1. Clone the repository and configure this machine:
-
-   ```bash
-   git clone https://github.com/YdtTran/ESP32-AI-WebServer.git
-   cd ESP32-AI-WebServer
-   test -e .env || cp .env.example .env
-   chmod 600 .env
-   ```
-
-   Edit `.env` and set **`HOST_IP`** to the LAN address reachable by the ESP32,
-   plus independent random values for **`API_KEY`** and **`BRIDGE_SECRET`**.
-   Generate each secret with `openssl rand -hex 32`. Set the ThingsBoard and
-   native dashboard values in `.env` if you use those integrations. Keep `.env`
-   private; when migrating an existing installation, retain its bridge secret.
-
-2. Start the core services and download the models:
-
-   ```bash
-   docker compose -p iot_assignment up -d --build
-   ./scripts/init_models.sh
-   ```
-
-   For a CPU-only machine, use this first command instead:
-
-   ```bash
-   docker compose -p iot_assignment -f docker-compose.yml -f docker-compose.cpu.yml up -d --build
-   ```
-
-3. Start the platform and create a console account:
-
-   ```bash
-   docker compose -f docker-compose.deploy.yml up -d --build
-   docker compose -f docker-compose.deploy.yml exec platform-bridge python -m platform-bridge.accounts create admin
-   docker compose -f docker-compose.deploy.yml ps
-   ```
-
-   The account command prompts for a password. Open `http://<HOST_IP>:8005` and
-   use `http://<HOST_IP>:8005/xiaozhi/ota/` as the device OTA URL. The `.env`
-   values `CONSOLE_USERNAME` and `CONSOLE_PASSWORD` configure a separate native
-   dashboard login; they do not create the console account.
-
-For optional ThingsBoard installation, verification, backups and migration of
-existing data, follow [Reproduce the local deployment](docs/reproduce-deployment.md).
-Model downloads, console accounts, device records and ThingsBoard data are not
-included in a clone. The YOLO UNO firmware still has a machine-specific OTA
-fallback: configure and build the firmware for the target host, then verify on
-hardware. The firmware cannot read the host's `.env` at runtime.
-
-The older Windows scripts and [docs/XIAOZHI_CONFIG.md](docs/XIAOZHI_CONFIG.md) describe a
-separate gateway setup; use the deployment guide above for the platform stack.
-The deployment does not publish the unified gateway on host port 8080; that port
-is used by the optional ThingsBoard service.
+- [Reproduce the local deployment](docs/reproduce-deployment.md) — full step-by-step installation, verification, and backup instructions.
+- [Multi-user console and device setup](docs/multi-user-auth.md) — console account creation, password resets, and ESP32 re-enrollment.
+- [Documentation archive](docs/README.md#archived-deployment-guides) — earlier standalone gateway and Windows instructions kept for historical reference.
 
 ---
 
@@ -194,19 +143,13 @@ is used by the optional ThingsBoard service.
 
 ## 📚 Tài Liệu Bổ Sung
 
-- [docs/XIAOZHI_CONFIG.md](docs/XIAOZHI_CONFIG.md): Chi tiết các định dạng cấu hình YAML / JSON.
+- [Documentation index](docs/README.md)
 
 ---
 
 ## 📄 License
-Dự án được phân phối dưới giấy phép [MIT](LICENSE).
 
-### Native ThingsBoard dashboards
+No repository-wide top-level `LICENSE` file has been adopted yet for the custom platform integration code in this repository (`platform-bridge/`, `xiaozhi-console/`, `thingsboard-mcp/`, `services/`, `gateway/`, `tools/`, `scripts/`). Any repository-wide license selection must be chosen explicitly because checked-in third-party components carry mixed licenses:
 
-The ThingsBoard IoT page includes a native device view. Configure a separate console account with `CONSOLE_USERNAME` and a strong `CONSOLE_PASSWORD` in the platform bridge environment, then restart the bridge. The deploy Compose file passes these variables from its environment (or `.env`). Do not commit credentials. Console sessions expire after eight hours and are cleared when the bridge restarts.
-
-The native dashboard uses `THINGSBOARD_HOST` and `THINGSBOARD_API_KEY` from `.env`; saved `agent_101` credentials apply when configured for the same host. Device telemetry and server attributes refresh every 15 seconds. Thermostat alarm flags and thresholds can be updated from the console and are saved to ThingsBoard. The dashboard list is read from ThingsBoard; the other dashboard-specific widgets are not yet reproduced. Use HTTPS or a trusted local network because the console account password is sent to the bridge at sign-in.
-
-### Multi-user console
-
-Console accounts are created by the server administrator; new accounts start with empty workspaces. See [Multi-user console and device setup](docs/multi-user-auth.md) for account commands, required bridge secrets, TLS and network routing, and device re-enrollment.
+- **GPL-3.0**: [`Tasmota/LICENSE.txt`](Tasmota/LICENSE.txt) (with bundled library licenses under `Tasmota/lib/`).
+- **MIT**: [`deploy/xiaozhi-runtime/LICENSE`](deploy/xiaozhi-runtime/LICENSE), [`deploy/xiaozhi-runtime/models/snakers4_silero-vad/LICENSE`](deploy/xiaozhi-runtime/models/snakers4_silero-vad/LICENSE), [`faster-whisper/LICENSE`](faster-whisper/LICENSE), [`firmware/LICENSE`](firmware/LICENSE), and [`piper/LICENSE.md`](piper/LICENSE.md).

@@ -97,7 +97,7 @@ class ASRProvider(ASRProviderBase):
         self.success_code = 1000
         self.seg_duration = 15000
 
-        # 确保输出目录存在
+        # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
     @staticmethod
@@ -168,7 +168,7 @@ class ASRProvider(ASRProviderBase):
                 if (
                     "payload_msg" in result
                     and result["payload_msg"]["code"] != self.success_code
-                    and result["payload_msg"]["code"] != 1013  # 忽略无有效语音的错误
+                    and result["payload_msg"]["code"] != 1013  # Ignore error for no valid speech
                 ):
                     logger.bind(tag=TAG).error(f"ASR error: {result}")
                     return None
@@ -205,7 +205,7 @@ class ASRProvider(ASRProviderBase):
                         return result["payload_msg"]["result"][0]["text"]
                     return None
                 elif "payload_msg" in result and result["payload_msg"]["code"] == 1013:
-                    # 无有效语音，返回空字符串
+                    # No valid speech, return empty string
                     return ""
                 else:
                     logger.bind(tag=TAG).error(f"ASR error: {result}")
@@ -238,25 +238,25 @@ class ASRProvider(ASRProviderBase):
 
         file_path = None
         try:
-            # 合并所有opus数据包
+            # Merge all opus packets
             if audio_format == "pcm":
                 pcm_data = opus_data
             else:
                 pcm_data = self.decode_opus(opus_data)
             combined_pcm_data = b"".join(pcm_data)
 
-            # 判断是否保存为WAV文件
+            # Decide whether to save as WAV file
             if self.delete_audio_file:
                 pass
             else:
                 file_path = self.save_audio_to_file(pcm_data, session_id)
 
-            # 直接使用PCM数据
-            # 计算分段大小 (单声道, 16bit, 16kHz采样率)
+            # Use PCM data directly
+            # Calculate segment size (mono, 16-bit, 16kHz sample rate)
             size_per_sec = 1 * 2 * 16000  # nchannels * sampwidth * framerate
             segment_size = int(size_per_sec * self.seg_duration / 1000)
 
-            # 语音识别
+            # Speech recognition
             start_time = time.time()
             text = await self._send_request(combined_pcm_data, segment_size)
             if text:

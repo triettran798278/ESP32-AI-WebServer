@@ -1,9 +1,9 @@
 import datetime
 from typing import Dict, Tuple
 
-# 全局字典，用于存储每个设备的每日输出字数
+# Global dict storing daily output character count per device
 _device_daily_output: Dict[Tuple[str, datetime.date], int] = {}
-# 记录最后一次检查的日期
+# Last checked date
 _last_check_date: datetime.date = None
 
 
@@ -30,7 +30,7 @@ def add_device_output(device_id: str, char_count: int):
     current_date = datetime.datetime.now().date()
     global _last_check_date
 
-    # 如果是第一次调用或者日期发生变化，清空计数器
+    # Reset counters on first call or when date changes
     if _last_check_date is None or _last_check_date != current_date:
         _device_daily_output.clear()
         _last_check_date = current_date

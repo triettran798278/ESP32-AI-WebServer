@@ -65,7 +65,7 @@ class LLMProvider(LLMProviderBase):
                 "stream": True,
             }
 
-            # 添加可选参数,只有当参数不为None时才添加
+            # Add optional parameters only when their value is not None
             optional_params = {
                 "max_tokens": kwargs.get("max_tokens", self.max_tokens),
                 "temperature": kwargs.get("temperature", self.temperature),

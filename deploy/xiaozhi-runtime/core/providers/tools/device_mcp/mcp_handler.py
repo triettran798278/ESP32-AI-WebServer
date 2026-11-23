@@ -179,11 +179,11 @@ async def handle_mcp_message(conn, mcp_client: MCPClient, payload: dict):
                     await mcp_client.add_tool(new_tool)
                     logger.bind(tag=TAG).debug(f"客户端工具 #{i+1}: {name}")
 
-                # 替换所有工具描述中的工具名称
+                # Replace tool names in all tool descriptions
                 for tool_data in mcp_client.tools.values():
                     if "description" in tool_data:
                         description = tool_data["description"]
-                        # 遍历所有工具名称进行替换
+                        # Iterate over all tool names and replace them
                         for (
                             sanitized_name,
                             original_name,
@@ -201,7 +201,7 @@ async def handle_mcp_message(conn, mcp_client: MCPClient, payload: dict):
                     await mcp_client.set_ready(True)
                     logger.bind(tag=TAG).debug("所有工具已获取，MCP客户端准备就绪")
 
-                    # 刷新工具缓存，确保MCP工具被包含在函数列表中
+                    # Refresh tool cache to ensure MCP tools are included in the function list
                     if hasattr(conn, "func_handler") and conn.func_handler:
                         conn.func_handler.tool_manager.refresh_tools()
                         conn.func_handler.current_support_functions()
@@ -229,7 +229,7 @@ async def send_mcp_initialize_message(conn):
 
     vision_url = get_vision_url(conn.config)
 
-    # 密钥生成token
+    # Generate token from auth key
     auth = AuthToken(conn.config["server"]["auth_key"])
     token = auth.generate_token(conn.headers.get("device-id"))
 
@@ -298,23 +298,23 @@ async def call_mcp_tool(
     result_future = asyncio.Future()
     await mcp_client.register_call_result_future(tool_call_id, result_future)
 
-    # 处理参数
+    # Process arguments
     try:
         if isinstance(args, str):
-            # 确保字符串是有效的JSON
+            # Ensure string is valid JSON
             if not args.strip():
                 arguments = {}
             else:
                 try:
-                    # 尝试直接解析
+                    # Try direct JSON parsing
                     arguments = json.loads(args)
                 except json.JSONDecodeError:
-                    # 如果解析失败，尝试合并多个JSON对象
+                    # If parsing fails, try merging multiple JSON objects
                     try:
-                        # 使用正则表达式匹配所有JSON对象
+                        # Match all JSON objects using regex
                         json_objects = re.findall(r"\{[^{}]*\}", args)
                         if len(json_objects) > 1:
-                            # 合并所有JSON对象
+                            # Merge all JSON objects
                             merged_dict = {}
                             for json_str in json_objects:
                                 try:
@@ -339,7 +339,7 @@ async def call_mcp_tool(
         else:
             raise ValueError(f"参数类型错误，期望字符串或字典，实际类型: {type(args)}")
 
-        # 确保参数是字典类型
+        # Ensure arguments is a dict
         if not isinstance(arguments, dict):
             raise ValueError(f"参数必须是字典类型，实际类型: {type(arguments)}")
 
@@ -376,9 +376,9 @@ async def call_mcp_tool(
             content = raw_result.get("content")
             if isinstance(content, list) and len(content) > 0:
                 if isinstance(content[0], dict) and "text" in content[0]:
-                    # 直接返回文本内容，不进行JSON解析
+                    # Return text content directly without JSON parsing
                     return content[0]["text"]
-        # 如果结果不是预期的格式，将其转换为字符串
+        # Convert result to string if not in expected format
         return str(raw_result)
     except asyncio.TimeoutError:
         await mcp_client.cleanup_call_result(tool_call_id)

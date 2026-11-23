@@ -15,7 +15,7 @@ SIM_DEVICE_A="${SIM_DEVICE_A:-Simulated Tasmota A}"
 SIM_DEVICE_B="${SIM_DEVICE_B:-Simulated Tasmota B}"
 
 # Build and start two virtual Tasmota relays.
-docker build -f tools/tasmota-simulator.Dockerfile -t "$SIM_IMAGE" .
+docker build -f tools/tasmota-simulator.Dockerfile -t "$SIM_IMAGE" tools
 
 docker rm -f tasmota-a tasmota-b >/dev/null 2>&1 || true
 

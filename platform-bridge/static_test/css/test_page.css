@@ -1,4 +1,4 @@
-/* ==================== 全局样式 ==================== */
+/* ==================== Global Styles ==================== */
 * {
     box-sizing: border-box;
 }
@@ -10,7 +10,7 @@ body {
     background-image: url('bg.png');
 }
 
-/* ==================== 容器布局 ==================== */
+/* ==================== Container Layout ==================== */
 .container {
     max-width: 1400px;
     margin: 0 auto;
@@ -18,7 +18,7 @@ body {
     padding: 0px;
 }
 
-/* 两栏布局 */
+/* Two-column layout */
 .two-column-layout {
     display: flex;
     gap: 20px;
@@ -34,7 +34,7 @@ body {
     min-width: 0;
 }
 
-/* ==================== 通用区块样式 ==================== */
+/* ==================== Common Section Styles ==================== */
 .section {
     margin-top: 10px;
     margin-bottom: 10px;
@@ -55,7 +55,7 @@ body {
     gap: 10px;
 }
 
-/* ==================== 通用按钮样式 ==================== */
+/* ==================== Common Button Styles ==================== */
 button {
     padding: 8px 15px;
     border: none;
@@ -71,7 +71,7 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* 切换按钮和连接按钮 */
+/* Toggle and connect buttons */
 .toggle-button,
 .connect-button {
     margin-left: auto;
@@ -93,13 +93,13 @@ button:disabled {
     box-shadow: 0px 0px 10px 2px rgba(0, 122, 255, 0.28);
 }
 
-/* ==================== 设备配置面板 ==================== */
+/* ==================== Device Configuration Panel ==================== */
 .config-panel {
     display: block;
     transition: all 0.3s ease;
 }
 
-/* MCP工具面板默认隐藏 */
+/* MCP tools panel hidden by default */
 #mcpToolsPanel {
     display: none;
 }
@@ -115,14 +115,14 @@ button:disabled {
     margin-top: 10px;
 }
 
-/* 配置行 */
+/* Config row */
 .config-row {
     display: flex;
     gap: 10px;
     width: 100%;
 }
 
-/* 配置项 */
+/* Config item */
 .config-item {
     flex: 1;
     display: flex;
@@ -157,7 +157,7 @@ button:disabled {
     cursor: default;
 }
 
-/* ==================== 连接信息面板 ==================== */
+/* ==================== Connection Info Panel ==================== */
 .connection-controls {
     display: flex;
     flex-direction: column;
@@ -195,7 +195,7 @@ button:disabled {
     background-color: #fafafa;
 }
 
-/* 连接状态 */
+/* Connection status */
 .connection-status {
     display: flex;
     align-items: center;
@@ -219,25 +219,25 @@ button:disabled {
     transition: all 0.3s ease;
 }
 
-/* 已连接状态 */
+/* Connected state */
 .connection-status .status.connected {
     background-color: #ecfdf3;
     color: #15803d;
 }
 
-/* 会话状态 - 离线中 */
+/* Session state - offline */
 .connection-status .status.offline {
     background-color: #fef2f2;
     color: #b91c1c;
 }
 
-/* 会话状态 - 聆听中 */
+/* Session state - listening */
 .connection-status .status.listening {
     background-color: #ecfdf3;
     color: #15803d;
 }
 
-/* 会话状态 - 说话中 */
+/* Session state - speaking */
 .connection-status .status.speaking {
     background-color: #fff7ed;
     color: #c2410c;
@@ -256,7 +256,7 @@ button:disabled {
     }
 }
 
-/* LLM状态emoji样式 */
+/* LLM status emoji styles */
 span.connection-status.llm-emoji {
     display: block !important;
     text-align: center !important;
@@ -277,7 +277,7 @@ span.connection-status.llm-emoji {
     line-height: 1;
 }
 
-/* ==================== 标签页样式 ==================== */
+/* ==================== Tab Styles ==================== */
 .tabs {
     display: flex;
     margin-bottom: 20px;
@@ -323,7 +323,7 @@ span.connection-status.llm-emoji {
     display: block;
 }
 
-/* ==================== 文本消息输入 ==================== */
+/* ==================== Text Message Input ==================== */
 .message-input {
     display: flex;
     gap: 10px;
@@ -347,7 +347,7 @@ span.connection-status.llm-emoji {
     border-radius: 20px;
 }
 
-/* ==================== 语音消息控制 ==================== */
+/* ==================== Voice Message Controls ==================== */
 .audio-controls {
     display: flex;
     justify-content: center;
@@ -391,14 +391,14 @@ span.connection-status.llm-emoji {
     }
 }
 
-/* ==================== 会话记录和日志 ==================== */
+/* ==================== Conversation History and Logs ==================== */
 .flex-container {
     display: flex;
     margin-top: 20px;
     background-color: #f9fafb;
 }
 
-/* 会话记录容器 */
+/* Conversation container */
 .conversation {
     max-height: 300px;
     overflow-y: auto;
@@ -409,7 +409,7 @@ span.connection-status.llm-emoji {
     flex: 1;
 }
 
-/* 消息气泡 */
+/* Message bubble */
 .message {
     margin-bottom: 10px;
     padding: 8px 12px;
@@ -433,7 +433,7 @@ span.connection-status.llm-emoji {
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* 日志容器 */
+/* Log container */
 #logContainer {
     margin-top: 0;
     padding: 10px;
@@ -462,7 +462,7 @@ span.connection-status.llm-emoji {
     color: #0f9d58;
 }
 
-/* ==================== MCP 工具管理 ==================== */
+/* ==================== MCP Tool Management ==================== */
 .mcp-tools-container {
     display: grid;
     gap: 12px;
@@ -536,7 +536,7 @@ span.connection-status.llm-emoji {
     font-family: 'Courier New', monospace;
 }
 
-/* MCP 属性项 */
+/* MCP property item */
 .mcp-property-item {
     background-color: white;
     border: 1px solid #e0e0e0;
@@ -620,7 +620,7 @@ span.connection-status.llm-emoji {
     color: #1976d2;
 }
 
-/* ==================== 脚本加载状态 ==================== */
+/* ==================== Script Loading Status ==================== */
 .script-status {
     display: inline-block;
     width: 10px;
@@ -668,7 +668,7 @@ span.connection-status.llm-emoji {
     border-left: 4px solid #f4b400;
 }
 
-/* ==================== File协议警告 ==================== */
+/* ==================== File Protocol Warning ==================== */
 #fileProtocolWarning {
     position: fixed;
     top: 0;
@@ -719,16 +719,16 @@ span.connection-status.llm-emoji {
     background-color: #45a049;
 }
 
-/* ==================== 响应式布局 ==================== */
+/* ==================== Responsive Layout ==================== */
 
-/* 大屏幕 (宽度 > 1200px) */
+/* Large screens (width > 1200px) */
 @media (min-width: 1201px) {
     .container {
         max-width: 80%;
     }
 }
 
-/* 中等屏幕 (宽度 <= 1200px) */
+/* Medium screens (width <= 1200px) */
 @media (max-width: 1200px) {
     .container {
         max-width: 95%;
@@ -736,10 +736,10 @@ span.connection-status.llm-emoji {
     }
 }
 
-/* 平板设备 (宽度 <= 1060px) */
+/* Tablets (width <= 1060px) */
 @media (max-width: 1060px) {
 
-    /* 两栏布局改为单栏 */
+    /* Switch two-column layout to single column */
     .two-column-layout {
         flex-direction: column;
         gap: 0;
@@ -751,7 +751,7 @@ span.connection-status.llm-emoji {
         margin-bottom: 10px;
     }
 
-    /* 连接状态标签调整 */
+    /* Adjust connection status labels */
     .connection-status {
         flex-wrap: wrap;
         gap: 8px;
@@ -759,7 +759,7 @@ span.connection-status.llm-emoji {
         padding: 0 8px;
     }
 
-    /* 会话记录和日志容器改为上下布局 */
+    /* Stack conversation and log containers vertically */
     .flex-container {
         flex-direction: column;
     }
@@ -775,13 +775,13 @@ span.connection-status.llm-emoji {
         margin-bottom: 10px;
     }
 
-    /* MCP 属性行改为单列 */
+    /* Switch MCP property row to single column */
     .mcp-property-row {
         grid-template-columns: 1fr;
     }
 }
 
-/* 移动设备 (宽度 <= 768px) */
+/* Mobile devices (width <= 768px) */
 @media (max-width: 768px) {
     body {
         padding: 0;
@@ -792,7 +792,7 @@ span.connection-status.llm-emoji {
         padding: 5px;
     }
 
-    /* 调整区块内边距 */
+    /* Adjust section padding */
     .section {
         padding: 8px;
         margin-top: 8px;
@@ -800,19 +800,19 @@ span.connection-status.llm-emoji {
         border-radius: 10px;
     }
 
-    /* 调整标题字体 */
+    /* Adjust heading font */
     .section h2 {
         font-size: 13px;
         flex-wrap: wrap;
         gap: 5px;
     }
 
-    /* 配置行改为单列 */
+    /* Switch config row to single column */
     .config-row {
         flex-direction: column;
     }
 
-    /* 按钮调整 */
+    /* Button adjustments */
     .toggle-button,
     .connect-button {
         padding: 3px 10px;
@@ -826,7 +826,7 @@ span.connection-status.llm-emoji {
         font-size: 13px;
     }
 
-    /* 输入框 */
+    /* Input fields */
     #serverUrl,
     #otaUrl,
     #messageInput {
@@ -834,7 +834,7 @@ span.connection-status.llm-emoji {
         padding: 6px;
     }
 
-    /* 配置项标签 */
+    /* Config item labels */
     .config-item label {
         min-width: 60px;
         font-size: 12px;
@@ -845,20 +845,20 @@ span.connection-status.llm-emoji {
         padding: 5px;
     }
 
-    /* 标签页 */
+    /* Tabs */
     .tab {
         padding: 8px 12px;
         font-size: 14px;
     }
 
-    /* 消息气泡 */
+    /* Message bubble */
     .message {
         max-width: 90%;
         font-size: 14px;
         padding: 6px 10px;
     }
 
-    /* 日志容器 */
+    /* Log container */
     #logContainer {
         font-size: 11px;
         padding: 8px;
@@ -868,7 +868,7 @@ span.connection-status.llm-emoji {
         font-size: 11px;
     }
 
-    /* 连接状态 */
+    /* Connection status */
     .connection-status {
         margin-left: 0;
         padding: 5px 0;
@@ -881,12 +881,12 @@ span.connection-status.llm-emoji {
         padding: 0px 6px;
     }
 
-    /* 音频可视化 */
+    /* Audio visualizer */
     .audio-visualizer {
         height: 50px;
     }
 
-    /* MCP 工具卡片 */
+    /* MCP tool cards */
     .mcp-tool-card {
         padding: 10px;
     }
@@ -913,19 +913,19 @@ span.connection-status.llm-emoji {
         min-width: auto;
     }
 
-    /* 消息输入框 */
+    /* Message input box */
     .message-input {
         gap: 5px;
     }
 
-    /* 会话记录高度调整 */
+    /* Adjust conversation height */
     .conversation,
     #logContainer {
         max-height: 180px;
     }
 }
 
-/* 小型移动设备 (宽度 <= 480px) */
+/* Small mobile devices (width <= 480px) */
 @media (max-width: 480px) {
     .container {
         padding: 3px;
@@ -941,7 +941,7 @@ span.connection-status.llm-emoji {
         font-size: 12px;
     }
 
-    /* 更紧凑的按钮 */
+    /* More compact buttons */
     .toggle-button,
     .connect-button {
         padding: 2px 8px;
@@ -964,31 +964,31 @@ span.connection-status.llm-emoji {
         font-size: 12px;
     }
 
-    /* 标签页 */
+    /* Tabs */
     .tab {
         padding: 6px 10px;
         font-size: 13px;
     }
 
-    /* 消息气泡 */
+    /* Message bubble */
     .message {
         max-width: 95%;
         font-size: 13px;
     }
 
-    /* 会话记录 */
+    /* Conversation history */
     .conversation,
     #logContainer {
         max-height: 150px;
         padding: 8px;
     }
 
-    /* 连接状态文字更小 */
+    /* Smaller connection status text */
     .connection-status .status {
         font-size: 10px;
     }
 
-    /* MCP 工具 */
+    /* MCP tools */
     .mcp-tool-name {
         font-size: 12px;
     }

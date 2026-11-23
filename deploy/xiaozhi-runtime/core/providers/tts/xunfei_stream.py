@@ -29,14 +29,14 @@ class XunfeiWSAuth:
         host = parsed_url.netloc
         path = parsed_url.path
 
-        # 获取UTC时间，讯飞要求使用RFC1123格式
+        # Get UTC time; Xunfei requires RFC1123 format
         now = time.gmtime()
         date = time.strftime('%a, %d %b %Y %H:%M:%S GMT', now)
 
-        # 构造签名字符串
+        # Build signature string
         signature_origin = f"host: {host}\ndate: {date}\nGET {path} HTTP/1.1"
 
-        # 计算签名
+        # Compute signature
         signature_sha = hmac.new(
             api_secret.encode('utf-8'),
             signature_origin.encode('utf-8'),
@@ -44,11 +44,11 @@ class XunfeiWSAuth:
         ).digest()
         signature_sha_base64 = base64.b64encode(signature_sha).decode(encoding='utf-8')
 
-        # 构造authorization
+        # Build authorization
         authorization_origin = f'api_key="{api_key}", algorithm="hmac-sha256", headers="host date request-line", signature="{signature_sha_base64}"'
         authorization = base64.b64encode(authorization_origin.encode('utf-8')).decode(encoding='utf-8')
 
-        # 构造最终的WebSocket URL
+        # Build final WebSocket URL
         v = {
             "authorization": authorization,
             "date": date,
@@ -62,23 +62,23 @@ class TTSProvider(TTSProviderBase):
     def __init__(self, config, delete_audio_file):
         super().__init__(config, delete_audio_file)
 
-        # 设置为流式接口类型
+        # Set to streaming interface type
         self.interface_type = InterfaceType.DUAL_STREAM
 
-        # 基础配置
+        # Basic config
         self.app_id = config.get("app_id")
         self.api_key = config.get("api_key")
         self.api_secret = config.get("api_secret")
 
-        # 接口地址
+        # Endpoint URL
         self.api_url = config.get("api_url", "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6")
 
-        # 音色配置
+        # Voice config
         self.voice = config.get("voice", "x5_lingxiaoxuan_flow")
         if config.get("private_voice"):
             self.voice = config.get("private_voice")
 
-        # 音频参数配置
+        # Audio parameter config
         speed = config.get("speed", "50")
         self.speed = int(speed) if speed else 50
 
@@ -88,13 +88,13 @@ class TTSProvider(TTSProviderBase):
         pitch = config.get("pitch", "50")
         self.pitch = int(pitch) if pitch else 50
 
-        # 音频编码配置
+        # Audio encoding config
         self.format = config.get("format", "raw")
 
         sample_rate = config.get("sample_rate", "24000")
         self.sample_rate = int(sample_rate) if sample_rate else 24000
 
-        # 口语化配置
+        # Colloquialism config
         self.oral_level = config.get("oral_level", "mid")
 
         spark_assist = config.get("spark_assist", "1")
@@ -106,19 +106,19 @@ class TTSProvider(TTSProviderBase):
         remain = config.get("remain", "0")
         self.remain = int(remain) if remain else 0
 
-        # WebSocket配置
+        # WebSocket config
         self.ws = None
         self._monitor_task = None
 
-        # 序列号管理
+        # Sequence number management
         self.text_seq = 0
 
-        # 创建Opus编码器
+        # Create Opus encoder
         self.opus_encoder = opus_encoder_utils.OpusEncoderUtils(
             sample_rate=self.sample_rate, channels=1, frame_size_ms=60
         )
 
-        # 验证必需参数
+        # Validate required parameters
         if not all([self.app_id, self.api_key, self.api_secret]):
             raise ValueError("讯飞TTS需要配置app_id、api_key和api_secret")
 
@@ -127,7 +127,7 @@ class TTSProvider(TTSProviderBase):
         try:
             logger.bind(tag=TAG).info("开始建立新连接...")
 
-            # 生成认证URL
+            # Generate auth URL
             auth_url = XunfeiWSAuth.create_auth_url(
                 self.api_key, self.api_secret, self.api_url
             )
@@ -155,17 +155,17 @@ class TTSProvider(TTSProviderBase):
                 )
 
                 if message.sentence_type == SentenceType.FIRST:
-                    # 重置序列号
+                    # Reset sequence number
                     self.text_seq = 0
                     self.conn.client_abort = False
-                # 增加序列号
+                # Increment sequence number
                 self.text_seq += 1
                 if self.conn.client_abort:
                     logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
                     continue
 
                 if message.sentence_type == SentenceType.FIRST:
-                    # 初始化参数
+                    # Initialize parameters
                     try:
                         if not getattr(self.conn, "sentence_id", None):
                             self.conn.sentence_id = uuid.uuid4().hex
@@ -184,7 +184,7 @@ class TTSProvider(TTSProviderBase):
                         logger.bind(tag=TAG).error(f"启动TTS会话失败: {str(e)}")
                         continue
 
-                # 处理文本内容
+                # Handle text content
                 if ContentType.TEXT == message.content_type:
                     if message.content_detail:
                         try:
@@ -199,18 +199,18 @@ class TTSProvider(TTSProviderBase):
                             logger.bind(tag=TAG).debug("TTS文本发送成功")
                         except Exception as e:
                             logger.bind(tag=TAG).error(f"发送TTS文本失败: {str(e)}")
-                            # 不使用continue，确保后续处理不被中断
+                            # Do not use continue, so subsequent handling is not interrupted
 
-                # 处理文件内容
+                # Handle file content
                 if ContentType.FILE == message.content_type:
                     logger.bind(tag=TAG).info(
                         f"添加音频文件到待播放列表: {message.content_file}"
                     )
                     if message.content_file and os.path.exists(message.content_file):
-                        # 先处理文件音频数据
+                        # Process file audio data first
                         self._process_audio_file_stream(message.content_file, callback=lambda audio_data: self.handle_audio_file(audio_data, message.content_detail))
 
-                # 处理会话结束
+                # Handle session end
                 if message.sentence_type == SentenceType.LAST:
                     try:
                         logger.bind(tag=TAG).info("开始结束TTS会话...")
@@ -238,7 +238,7 @@ class TTSProvider(TTSProviderBase):
 
             filtered_text = MarkdownCleaner.clean_markdown(text)
 
-            # 发送文本合成请求
+            # Send text synthesis request
             run_request = self._build_base_request(status=1,text=filtered_text)
             await self.ws.send(json.dumps(run_request))
             return
@@ -256,7 +256,7 @@ class TTSProvider(TTSProviderBase):
     async def start_session(self, session_id):
         logger.bind(tag=TAG).info(f"开始会话～～{session_id}")
         try:
-            # 会话开始时检测上个会话的监听状态
+            # Check monitor status of previous session at session start
             if (
                 self._monitor_task is not None
                 and isinstance(self._monitor_task, Task)
@@ -267,20 +267,20 @@ class TTSProvider(TTSProviderBase):
                 )
                 await self.close()
 
-            # 建立新连接
+            # Establish new connection
             await self._ensure_connection()
 
-            # 启动监听任务
+            # Start monitor task
             self._monitor_task = asyncio.create_task(self._start_monitor_tts_response())
 
-            # 发送会话启动请求
+            # Send session start request
             start_request = self._build_base_request(status=0)
 
             await self.ws.send(json.dumps(start_request))
             logger.bind(tag=TAG).info("会话启动请求已发送")
         except Exception as e:
             logger.bind(tag=TAG).error(f"启动会话失败: {str(e)}")
-            # 确保清理资源
+            # Ensure resources are cleaned up
             await self.close()
             raise
 
@@ -288,7 +288,7 @@ class TTSProvider(TTSProviderBase):
         logger.bind(tag=TAG).info(f"关闭会话～～{session_id}")
         try:
             if self.ws:
-                # 发送会话结束请求
+                # Send session end request
                 stop_request = self._build_base_request(status=2)
                 await self.ws.send(json.dumps(stop_request))
                 logger.bind(tag=TAG).info("会话结束请求已发送")
@@ -331,7 +331,7 @@ class TTSProvider(TTSProviderBase):
                 try:
                     msg = await self.ws.recv()
 
-                    # 检查客户端是否中止
+                    # Check if client aborted
                     if self.conn.client_abort:
                         logger.bind(tag=TAG).info("收到打断信息，终止监听TTS响应")
                         break
@@ -393,34 +393,34 @@ class TTSProvider(TTSProviderBase):
                     )
                     break
 
-            # 链接不可复用
+            # Connection is not reusable
             if self.ws:
                 try:
                     await self.ws.close()
                 except:
                     pass
                 self.ws = None
-        # 监听任务退出时清理引用
+        # Clear reference when monitor task exits
         finally:
             self._monitor_task = None
 
     def to_tts(self, text: str) -> list:
         """非流式TTS处理，用于测试及保存音频文件的场景"""
         try:
-            # 创建新的事件循环
+            # Create a new event loop
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-            # 存储音频数据
+            # Store audio data
             audio_data = []
 
             async def _generate_audio():
-                # 生成认证URL
+                # Generate auth URL
                 auth_url = XunfeiWSAuth.create_auth_url(
                     self.api_key, self.api_secret, self.api_url
                 )
 
-                # 建立WebSocket连接
+                # Establish WebSocket connection
                 ws = await websockets.connect(
                     auth_url,
                     ping_interval=30,
@@ -468,7 +468,7 @@ class TTSProvider(TTSProviderBase):
                             raise Exception(f"合成失败: {code} - {message}")
 
                 finally:
-                    # 清理资源
+                    # Clean up resources
                     try:
                         await ws.close()
                     except:

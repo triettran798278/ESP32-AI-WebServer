@@ -56,7 +56,7 @@ class TTSProvider(TTSProviderBase):
         if self.voice:
             self.voice_setting["voice_id"] = self.voice
 
-        self.host = "api.minimaxi.com"  # 备用地址：api-bj.minimaxi.com
+        self.host = "api.minimaxi.com"  # Backup host: api-bj.minimaxi.com
         self.api_url = f"https://{self.host}/v1/t2a_v2?GroupId={self.group_id}"
         self.header = {
             "Content-Type": "application/json",
@@ -68,7 +68,7 @@ class TTSProvider(TTSProviderBase):
             sample_rate=24000, channels=1, frame_size_ms=60
         )
 
-        # PCM缓冲区
+        # PCM buffer
         self.pcm_buffer = bytearray()
 
     def tts_text_priority_thread(self):
@@ -77,7 +77,7 @@ class TTSProvider(TTSProviderBase):
             try:
                 message = self.tts_text_queue.get(timeout=1)
                 if message.sentence_type == SentenceType.FIRST:
-                    # 初始化参数
+                    # Initialize parameters
                     self.tts_stop_request = False
                     self.processed_chars = 0
                     self.tts_text_buff = []
@@ -93,10 +93,10 @@ class TTSProvider(TTSProviderBase):
                         f"添加音频文件到待播放列表: {message.content_file}"
                     )
                     if message.content_file and os.path.exists(message.content_file):
-                        # 先处理文件音频数据
+                        # Process file audio data first
                         self._process_audio_file_stream(message.content_file, callback=lambda audio_data: self.handle_audio_file(audio_data, message.content_detail))
                 if message.sentence_type == SentenceType.LAST:
-                    # 处理剩余的文本
+                    # Process remaining text
                     self._process_remaining_text_stream(True)
 
             except queue.Empty:
@@ -189,7 +189,7 @@ class TTSProvider(TTSProviderBase):
                     self.pcm_buffer.clear()
                     self.tts_audio_queue.put((SentenceType.FIRST, [], text))
 
-                    # 处理音频流数据
+                    # Process audio stream data
                     buffer = b""
                     async for chunk in resp.content.iter_any():
                         if not chunk:
@@ -197,7 +197,7 @@ class TTSProvider(TTSProviderBase):
 
                         buffer += chunk
                         while True:
-                            # 查找数据块分隔符
+                            # Find data chunk delimiter
                             header_pos = buffer.find(b"data: ")
                             if header_pos == -1:
                                 break
@@ -206,7 +206,7 @@ class TTSProvider(TTSProviderBase):
                             if end_pos == -1:
                                 break
 
-                            # 提取单个完整JSON块
+                            # Extract single complete JSON block
                             json_str = buffer[header_pos + 6 : end_pos].decode("utf-8")
                             buffer = buffer[end_pos + 2 :]
 
@@ -215,7 +215,7 @@ class TTSProvider(TTSProviderBase):
                                 status = data.get("data", {}).get("status", 1)
                                 audio_hex = data.get("data", {}).get("audio")
 
-                                # 仅处理status=1的有效音频块 忽略status=2的结束汇总块
+                                # Process only valid audio chunks with status=1; ignore final summary chunk (status=2)
                                 if status == 1 and audio_hex:
                                     pcm_data = bytes.fromhex(audio_hex)
                                     self.pcm_buffer.extend(pcm_data)
@@ -232,7 +232,7 @@ class TTSProvider(TTSProviderBase):
                                 frame, end_of_stream=False, callback=self.handle_opus
                             )
 
-                    # flush 剩余不足一帧的数据
+                    # Flush remaining data smaller than one frame
                     if self.pcm_buffer:
                         self.opus_encoder.encode_pcm_to_opus_stream(
                             bytes(self.pcm_buffer),
@@ -241,7 +241,7 @@ class TTSProvider(TTSProviderBase):
                         )
                         self.pcm_buffer.clear()
 
-                    # 如果是最后一段，输出音频获取完毕
+                    # If last segment, finish audio output
                     if is_last:
                         self._process_before_stop_play_files()
 
@@ -295,7 +295,7 @@ class TTSProvider(TTSProviderBase):
 
                 logger.info(f"TTS请求成功: {text}, 耗时: {time.time() - start_time}秒")
 
-                # 使用opus编码器处理PCM数据
+                # Encode PCM data with Opus encoder
                 opus_datas = []
                 full_content = response.content.decode('utf-8')
                 pcm_data = bytearray()
@@ -304,7 +304,7 @@ class TTSProvider(TTSProviderBase):
                         continue
 
                     try:
-                        json_str = data_block[6:]  # 去除'data: '前缀
+                        json_str = data_block[6:]  # Strip 'data: ' prefix
                         data = json.loads(json_str)
                         if data.get('data', {}).get('status') == 1:
                             audio_hex = data['data']['audio']
@@ -313,7 +313,7 @@ class TTSProvider(TTSProviderBase):
                         logger.bind(tag=TAG).warning(f"无效数据块: {e}")
                         continue
 
-                # 计算每帧的字节数
+                # Calculate bytes per frame
                 frame_bytes = int(
                     self.opus_encoder.sample_rate
                     * self.opus_encoder.channels
@@ -322,7 +322,7 @@ class TTSProvider(TTSProviderBase):
                     * 2
                 )
 
-                # 分帧处理合并后的PCM数据
+                # Process merged PCM data frame by frame
                 for i in range(0, len(pcm_data), frame_bytes):
                     frame = bytes(pcm_data[i:i+frame_bytes])
                     if len(frame) < frame_bytes:

@@ -24,9 +24,9 @@ class DeviceIoTExecutor(ToolExecutor):
             )
 
         try:
-            # 解析工具名称，获取设备名和操作类型
+            # Parse tool name to get device name and operation type
             if tool_name.startswith("get_"):
-                # 查询操作：get_devicename_property
+                # Query operation: get_devicename_property
                 parts = tool_name.split("_", 2)
                 if len(parts) >= 3:
                     device_name = parts[1]
@@ -34,7 +34,7 @@ class DeviceIoTExecutor(ToolExecutor):
 
                     value = await self._get_iot_status(device_name, property_name)
                     if value is not None:
-                        # 处理响应模板
+                        # Process response template
                         response_success = arguments.get(
                             "response_success", "查询成功：{value}"
                         )
@@ -52,30 +52,30 @@ class DeviceIoTExecutor(ToolExecutor):
                             action=Action.ERROR, response=response_failure
                         )
             else:
-                # 控制操作：devicename_method
+                # Control operation: devicename_method
                 parts = tool_name.split("_", 1)
                 if len(parts) >= 2:
                     device_name = parts[0]
                     method_name = parts[1]
 
-                    # 提取控制参数（排除响应参数）
+                    # Extract control parameters (excluding response parameters)
                     control_params = {
                         k: v
                         for k, v in arguments.items()
                         if k not in ["response_success", "response_failure"]
                     }
 
-                    # 发送IoT控制命令
+                    # Send IoT control command
                     await self._send_iot_command(
                         device_name, method_name, control_params
                     )
 
-                    # 等待状态更新
+                    # Wait for state update
                     await asyncio.sleep(0.1)
 
                     response_success = arguments.get("response_success", "操作成功")
 
-                    # 处理响应中的占位符
+                    # Replace placeholders in response
                     for param_name, param_value in control_params.items():
                         placeholder = "{" + param_name + "}"
                         if placeholder in response_success:
@@ -138,7 +138,7 @@ class DeviceIoTExecutor(ToolExecutor):
             device_name = descriptor["name"]
             device_desc = descriptor["description"]
 
-            # 注册查询工具
+            # Register query tools
             if "properties" in descriptor:
                 for prop_name, prop_info in descriptor["properties"].items():
                     tool_name = f"get_{device_name.lower()}_{prop_name.lower()}"
@@ -171,16 +171,16 @@ class DeviceIoTExecutor(ToolExecutor):
                         tool_type=ToolType.DEVICE_IOT,
                     )
 
-            # 注册控制工具
+            # Register control tools
             if "methods" in descriptor:
                 for method_name, method_info in descriptor["methods"].items():
                     tool_name = f"{device_name.lower()}_{method_name.lower()}"
 
-                    # 构建参数
+                    # Build parameters
                     parameters = {}
                     required_params = []
 
-                    # 添加方法的原始参数
+                    # Add original method parameters
                     if "parameters" in method_info:
                         parameters.update(
                             {
@@ -195,7 +195,7 @@ class DeviceIoTExecutor(ToolExecutor):
                         )
                         required_params.extend(method_info["parameters"].keys())
 
-                    # 添加响应参数
+                    # Add response parameters
                     parameters.update(
                         {
                             "response_success": {

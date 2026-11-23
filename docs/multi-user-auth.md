@@ -4,7 +4,7 @@ The console uses administrator-created accounts. Each account starts without age
 
 ## Deployment
 
-1. Back up `deploy/platform-data` and the existing device data before upgrading. The bridge stores accounts and owned agents in `accounts.db`, and device enrollment in `devices.db`, under `PLATFORM_DATA_DIR` (the deployment mounts `deploy/platform-data` at `/app/data`). Keep this directory private and back it up together.
+1. Back up the `iot_platform_data` Docker volume (`PLATFORM_DATA_VOLUME`, or legacy `deploy/platform-data/` before migrating) before upgrading. The bridge stores accounts and owned agents in `accounts.db`, and device enrollment in `devices.db`, under `PLATFORM_DATA_DIR` (the deployment mounts `iot_platform_data` at `/app/data`). Keep this volume private and back it up together.
 2. Generate a long, random `BRIDGE_SECRET` and set it in your untracked deployment environment. The deployment passes the same secret to the XiaoZhi server through its environment. Do not commit the value. Changing the secret invalidates outstanding enrollment challenges.
 3. Configure `PUBLIC_OTA_URL` and `PUBLIC_WS_URL` to the bridge's externally reachable OTA and WebSocket URLs. For deployments outside a trusted local test network, put the bridge behind TLS and use `https://.../xiaozhi/ota/` and `wss://.../xiaozhi/v1/`; credentials and device enrollment proofs must not travel over plaintext networks. Point each device's configured OTA URL at the bridge, not the upstream XiaoZhi server.
 4. Start the core services and deployment stack using the commands in the repository README. The deployment no longer publishes upstream WebSocket port 8002 or the shared ThingsBoard MCP port 8009, and the core stack no longer publishes its shared gateway ports 8008 and 8080. Do not expose those services through another route: devices must connect through the authenticated bridge WebSocket. Stop any previously deployed `thingsboard-mcp` container; removing it from the Compose file does not stop an already-running container.
@@ -12,7 +12,7 @@ The console uses administrator-created accounts. Each account starts without age
 
 ## Accounts
 
-Create an account from the server terminal (the command prompts for the password without putting it in shell history):
+Set `CONSOLE_USERNAME` and `CONSOLE_PASSWORD` (12+ characters) in `.env` to auto-bootstrap the initial account and starter ThingsBoard agent at bridge startup. Create additional accounts from the server terminal (the command prompts for the password without putting it in shell history):
 
 ```sh
 docker compose -f docker-compose.deploy.yml exec platform-bridge python -m platform-bridge.accounts create alice

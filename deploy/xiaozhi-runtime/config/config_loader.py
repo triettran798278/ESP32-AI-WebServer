@@ -19,7 +19,7 @@ def load_config():
     """加载配置文件"""
     from core.utils.cache.manager import cache_manager, CacheType
 
-    # 检查缓存
+    # Check cache
     cached_config = cache_manager.get(CacheType.CONFIG, "main_config")
     if cached_config is not None:
         return cached_config
@@ -27,7 +27,7 @@ def load_config():
     default_config_path = get_project_dir() + "config.yaml"
     custom_config_path = get_project_dir() + "data/.config.yaml"
 
-    # 加载默认配置
+    # Load default config
     default_config = read_config(default_config_path)
     custom_config = read_config(custom_config_path)
     if os.getenv("BRIDGE_SECRET") and custom_config.get("manager-api"):
@@ -37,30 +37,30 @@ def load_config():
         import asyncio
         try:
             loop = asyncio.get_running_loop()
-            # 如果已经在事件循环中，使用异步版本
+            # Use async version if already in an event loop
             config = asyncio.run_coroutine_threadsafe(
                 get_config_from_api_async(custom_config), loop
             ).result()
         except RuntimeError:
-            # 如果不在事件循环中（启动时），创建新的事件循环
+            # Create new event loop if not in one (at startup)
             config = asyncio.run(get_config_from_api_async(custom_config))
     else:
-        # 合并配置
+        # Merge configs
         config = merge_configs(default_config, custom_config)
-    # 初始化目录
+    # Initialize directories
     ensure_directories(config)
 
-    # 缓存配置
+    # Cache config
     cache_manager.set(CacheType.CONFIG, "main_config", config)
     return config
 
 
 async def get_config_from_api_async(config):
     """从Java API获取配置（异步版本）"""
-    # 初始化API客户端
+    # Initialize API client
     init_service(config)
 
-    # 获取服务器配置
+    # Get server config
     config_data = await get_server_config()
     if config_data is None:
         raise Exception("Failed to fetch server config from API")
@@ -71,7 +71,7 @@ async def get_config_from_api_async(config):
         "secret": config["manager-api"].get("secret", ""),
     }
     auth_enabled = config_data.get("server", {}).get("auth", {}).get("enabled", False)
-    # server的配置以本地为准
+    # Use local server config as authoritative
     if config.get("server"):
         config_data["server"] = {
             "ip": config["server"].get("ip", ""),
@@ -81,7 +81,7 @@ async def get_config_from_api_async(config):
             "auth_key": config["server"].get("auth_key", ""),
         }
     config_data["server"]["auth"] = {"enabled": auth_enabled}
-    # 如果服务器没有prompt_template，则从本地配置读取
+    # Fall back to local prompt_template if server has none
     if not config_data.get("prompt_template"):
         config_data["prompt_template"] = config.get("prompt_template")
     return config_data
@@ -95,12 +95,12 @@ async def get_private_config_from_api(config, device_id, client_id):
 def ensure_directories(config):
     """确保所有配置路径存在"""
     dirs_to_create = set()
-    project_dir = get_project_dir()  # 获取项目根目录
-    # 日志文件目录
+    project_dir = get_project_dir()  # Get project root directory
+    # Log file directory
     log_dir = config.get("log", {}).get("log_dir", "tmp")
     dirs_to_create.add(os.path.join(project_dir, log_dir))
 
-    # ASR/TTS模块输出目录
+    # ASR/TTS module output directories
     for module in ["ASR", "TTS"]:
         if config.get(module) is None:
             continue
@@ -109,7 +109,7 @@ def ensure_directories(config):
             if output_dir:
                 dirs_to_create.add(output_dir)
 
-    # 根据selected_module创建模型目录
+    # Create model directories based on selected_module
     selected_modules = config.get("selected_module", {})
     for module_type in ["ASR", "LLM", "TTS"]:
         selected_provider = selected_modules.get(module_type)
@@ -125,7 +125,7 @@ def ensure_directories(config):
             full_model_dir = os.path.join(project_dir, output_dir)
             dirs_to_create.add(full_model_dir)
 
-    # 统一创建目录（保留原data目录创建）
+    # Create all directories (preserve original data directory creation)
     for dir_path in dirs_to_create:
         try:
             os.makedirs(dir_path, exist_ok=True)

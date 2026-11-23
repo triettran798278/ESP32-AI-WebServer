@@ -25,25 +25,25 @@ async def handleIotDescriptors(conn, descriptors):
     functions_changed = False
 
     for descriptor in descriptors:
-        # 如果descriptor没有properties和methods，则直接跳过
+        # Skip descriptor if it has neither properties nor methods
         if "properties" not in descriptor and "methods" not in descriptor:
             continue
 
-        # 处理缺失properties的情况
+        # Handle missing properties
         if "properties" not in descriptor:
             descriptor["properties"] = {}
-            # 从methods中提取所有参数作为properties
+            # Extract all parameters from methods as properties
             if "methods" in descriptor:
                 for method_name, method_info in descriptor["methods"].items():
                     if "parameters" in method_info:
                         for param_name, param_info in method_info["parameters"].items():
-                            # 将参数信息转换为属性信息
+                            # Convert parameter info to property info
                             descriptor["properties"][param_name] = {
                                 "description": param_info["description"],
                                 "type": param_info["type"],
                             }
 
-        # 创建IOT设备描述符
+        # Create IoT device descriptor
         iot_descriptor = IotDescriptor(
             descriptor["name"],
             descriptor["description"],
@@ -53,9 +53,9 @@ async def handleIotDescriptors(conn, descriptors):
         conn.iot_descriptors[descriptor["name"]] = iot_descriptor
         functions_changed = True
 
-    # 如果注册了新函数，更新function描述列表
+    # Update function description list if new functions were registered
     if functions_changed and hasattr(conn, "func_handler"):
-        # 注册IoT工具到统一工具处理器
+        # Register IoT tools in unified tool handler
         await conn.func_handler.register_iot_tools(descriptors)
 
         conn.func_handler.current_support_functions()

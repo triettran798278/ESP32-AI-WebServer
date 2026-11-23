@@ -14,6 +14,7 @@ class DeploymentEnvironmentTests(unittest.TestCase):
             'HOST_IP', 'API_KEY', 'BRIDGE_SECRET', 'THINGSBOARD_HOST',
             'THINGSBOARD_ALLOWED_ORIGINS', 'PUBLIC_WS_URL', 'PUBLIC_OTA_URL',
             'COREIOT_PUBLIC_ID', 'COREIOT_DASHBOARD_ID', 'COREIOT_URL',
+            'PLATFORM_DATA_VOLUME',
         }}
         env.update(values)
         return subprocess.run(
@@ -32,7 +33,8 @@ class DeploymentEnvironmentTests(unittest.TestCase):
         self.assertEqual(core.returncode, 0, core.stderr)
         self.assertEqual(deploy.returncode, 0, deploy.stderr)
         core_services = json.loads(core.stdout)['services']
-        deploy_services = json.loads(deploy.stdout)['services']
+        deploy_parsed = json.loads(deploy.stdout)
+        deploy_services = deploy_parsed['services']
         for name in ('gateway', 'mcp-gateway'):
             self.assertEqual(core_services[name]['environment']['API_KEY'], values['API_KEY'])
         coreiot = core_services['mcp-gateway']['environment']
@@ -43,6 +45,18 @@ class DeploymentEnvironmentTests(unittest.TestCase):
         self.assertEqual(bridge['PUBLIC_WS_URL'], 'ws://10.12.0.9:8005/xiaozhi/v1/')
         self.assertEqual(bridge['THINGSBOARD_HOST'], values['THINGSBOARD_HOST'])
         self.assertEqual(deploy_services['xiaozhi-server']['environment']['BRIDGE_SECRET'], values['BRIDGE_SECRET'])
+        data_mount = next(
+            (m for m in deploy_services['platform-bridge']['volumes'] if m.get('target') == '/app/data'),
+            None,
+        )
+        self.assertIsNotNone(data_mount)
+        self.assertEqual(data_mount['type'], 'volume')
+        self.assertEqual(data_mount['source'], 'platform-data')
+        self.assertEqual(deploy_parsed['volumes']['platform-data']['name'], 'iot_platform_data')
+
+        custom_deploy = self.compose('docker-compose.deploy.yml', {**values, 'PLATFORM_DATA_VOLUME': 'custom_platform_vol'})
+        self.assertEqual(custom_deploy.returncode, 0, custom_deploy.stderr)
+        self.assertEqual(json.loads(custom_deploy.stdout)['volumes']['platform-data']['name'], 'custom_platform_vol')
 
     def test_standalone_simulator_requires_host_before_running_docker(self):
         env = {'PATH': os.environ['PATH']}

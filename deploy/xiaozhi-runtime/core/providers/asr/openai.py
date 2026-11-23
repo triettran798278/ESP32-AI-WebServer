@@ -40,13 +40,13 @@ class ASRProvider(ASRProviderBase):
                 "Authorization": f"Bearer {self.api_key}",
             }
             
-            # 使用data参数传递模型名称
+            # Pass model name via data parameter
             data = {
                 "model": self.model
             }
 
 
-            with open(file_path, "rb") as audio_file:  # 使用with语句确保文件关闭
+            with open(file_path, "rb") as audio_file:  # Use with-statement to ensure file is closed
                 files = {
                     "file": audio_file
                 }
@@ -72,7 +72,7 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).error(f"语音识别失败: {e}")
             return "", None
         finally:
-            # 文件清理逻辑
+            # File cleanup logic
             if self.delete_audio_file and file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)

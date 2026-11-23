@@ -111,3 +111,72 @@ class AccountTests(unittest.TestCase):
             proceed.set()
             thread.join(5)
         self.assertEqual(result, [None])
+
+    def test_bootstrap_from_env_is_noop_when_unset_or_short_password(self):
+        self.assertEqual(accounts.bootstrap_from_env(self.store, {}), {'created_user': False, 'created_agent': False})
+        self.assertEqual(
+            accounts.bootstrap_from_env(self.store, {'CONSOLE_USERNAME': 'admin'}),
+            {'created_user': False, 'created_agent': False},
+        )
+        short = accounts.bootstrap_from_env(self.store, {'CONSOLE_USERNAME': 'admin', 'CONSOLE_PASSWORD': 'short'})
+        self.assertFalse(short['created_user'])
+        self.assertFalse(short['created_agent'])
+        self.assertFalse(self.store.user_exists('admin'))
+
+    def test_bootstrap_from_env_creates_user_and_starter_agent_idempotently(self):
+        env = {
+            'CONSOLE_USERNAME': 'admin',
+            'CONSOLE_PASSWORD': 'admin-password-123',
+            'THINGSBOARD_HOST': 'https://codehelpers.tech/',
+            'THINGSBOARD_API_KEY': 'tb-machine-key',
+        }
+        first = accounts.bootstrap_from_env(self.store, env)
+        self.assertTrue(first['created_user'])
+        self.assertTrue(first['created_agent'])
+        self.assertIsNotNone(self.store.login('admin', 'admin-password-123'))
+        agents = self.store.list_agents('admin')
+        self.assertEqual(len(agents), 1)
+        self.assertEqual(agents[0]['integrations']['thingsboard']['host'], 'https://codehelpers.tech')
+        self.assertEqual(agents[0]['integrations']['thingsboard']['api_key'], 'tb-machine-key')
+
+        second = accounts.bootstrap_from_env(
+            self.store,
+            {
+                'CONSOLE_USERNAME': 'admin',
+                'CONSOLE_PASSWORD': 'different-password-999',
+                'THINGSBOARD_HOST': 'https://other.example',
+                'THINGSBOARD_API_KEY': 'other-key',
+            },
+        )
+        self.assertEqual(second, {'created_user': False, 'created_agent': False, 'username': 'admin'})
+        self.assertIsNotNone(self.store.login('admin', 'admin-password-123'))
+        self.assertIsNone(self.store.login('admin', 'different-password-999'))
+        agents_after = self.store.list_agents('admin')
+        self.assertEqual(len(agents_after), 1)
+        self.assertEqual(agents_after[0]['integrations']['thingsboard']['api_key'], 'tb-machine-key')
+
+    def test_bootstrap_from_env_seeds_agent_for_existing_empty_user_and_isolates_ids(self):
+        self.store.create_user('bob', 'bob-original-password')
+        seeded = accounts.bootstrap_from_env(
+            self.store,
+            {
+                'CONSOLE_USERNAME': 'bob',
+                'CONSOLE_PASSWORD': 'ignored-new-password',
+                'THINGSBOARD_HOST': 'http://192.168.1.20:8080',
+                'THINGSBOARD_API_KEY': 'bob-key',
+            },
+        )
+        self.assertFalse(seeded['created_user'])
+        self.assertTrue(seeded['created_agent'])
+        self.assertIsNotNone(self.store.login('bob', 'bob-original-password'))
+        self.assertIsNone(self.store.login('bob', 'ignored-new-password'))
+
+        alice = accounts.bootstrap_from_env(
+            self.store,
+            {'CONSOLE_USERNAME': 'alice', 'CONSOLE_PASSWORD': 'alice-password-123'},
+        )
+        self.assertTrue(alice['created_user'])
+        self.assertTrue(alice['created_agent'])
+        self.assertNotEqual(seeded['agent_id'], alice['agent_id'])
+        self.assertEqual(len(self.store.list_agents('bob')), 1)
+        self.assertEqual(len(self.store.list_agents('alice')), 1)

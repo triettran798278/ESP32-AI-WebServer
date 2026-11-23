@@ -6,7 +6,7 @@ from plugins_func.register import register_function, ToolType, ActionResponse, A
 TAG = __name__
 logger = setup_logging()
 
-# 定义基础的函数描述模板
+# Base function description template
 SEARCH_FROM_RAGFLOW_FUNCTION_DESC = {
     "type": "function",
     "function": {
@@ -25,9 +25,9 @@ SEARCH_FROM_RAGFLOW_FUNCTION_DESC = {
     "search_from_ragflow", SEARCH_FROM_RAGFLOW_FUNCTION_DESC, ToolType.SYSTEM_CTL
 )
 def search_from_ragflow(conn, question=None):
-    # 确保字符串参数正确处理编码
+    # Ensure string parameter handles encoding properly
     if question and isinstance(question, str):
-        # 确保问题参数是UTF-8编码的字符串
+        # Ensure question is a UTF-8 string
         pass
     else:
         question = str(question) if question is not None else ""
@@ -40,11 +40,11 @@ def search_from_ragflow(conn, question=None):
     url = base_url + "/api/v1/retrieval"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    # 确保payload中的字符串都是UTF-8编码
+    # Ensure all strings in payload are UTF-8 encoded
     payload = {"question": question, "dataset_ids": dataset_ids}
 
     try:
-        # 使用ensure_ascii=False确保JSON序列化时正确处理中文
+        # Use ensure_ascii=False to preserve Chinese characters in JSON
         response = requests.post(
             url,
             json=payload,
@@ -53,12 +53,12 @@ def search_from_ragflow(conn, question=None):
             verify=False,
         )
 
-        # 显式设置响应的编码为utf-8
+        # Explicitly set response encoding to utf-8
         response.encoding = "utf-8"
 
         response.raise_for_status()
 
-        # 先获取文本内容，然后手动处理JSON解码
+        # Read text first, then decode JSON manually
         response_text = response.text
         import json
 
@@ -69,12 +69,12 @@ def search_from_ragflow(conn, question=None):
             error_message = result.get("error", {}).get("message", "")
             error_code = result.get("code", "")
 
-            # 安全地记录错误信息
+            # Safely log error info
             logger.bind(tag=TAG).error(
                 f"RAGFlow API调用失败，响应码：{error_code}，错误详情：{error_detail}，完整响应：{result}"
             )
 
-            # 构建详细的错误响应
+            # Build detailed error response
             error_response = f"RAG接口返回异常（错误码：{error_code}）"
 
             if error_message:
@@ -89,7 +89,7 @@ def search_from_ragflow(conn, question=None):
         for chunk in chunks:
             content = chunk.get("content", "")
             if content:
-                # 安全地处理内容字符串
+                # Safely handle content string
                 if isinstance(content, str):
                     contents.append(content)
                 elif isinstance(content, bytes):
@@ -98,7 +98,7 @@ def search_from_ragflow(conn, question=None):
                     contents.append(str(content))
 
         if contents:
-            # 组织知识库内容为引用模式
+            # Format knowledge base content in quote mode
             context_text = f"# 关于问题【{question}】查到知识库如下\n"
             context_text += "```\n\n\n".join(contents[:5])
             context_text += "\n```"
@@ -107,13 +107,13 @@ def search_from_ragflow(conn, question=None):
         return ActionResponse(Action.REQLLM, context_text, None)
 
     except requests.exceptions.RequestException as e:
-        # 网络请求异常
+        # Network request exception
         error_type = type(e).__name__
         logger.bind(tag=TAG).error(
             f"RAGflow网络请求失败，异常类型：{error_type}，详情：{str(e)}"
         )
 
-        # 根据异常类型提供更详细的错误信息和解决方案
+        # Provide detailed error messages and solutions by exception type
         if isinstance(e, requests.exceptions.ConnectTimeout):
             error_response = "RAG接口连接超时（5秒）"
             error_response += "\n可能原因：RAGflow服务未启动或网络连接问题"
@@ -130,12 +130,12 @@ def search_from_ragflow(conn, question=None):
             error_response += "\n解决方案：请稍后重试或检查RAGflow服务性能"
 
         elif isinstance(e, requests.exceptions.HTTPError):
-            # 处理HTTP错误状态码
+            # Handle HTTP error status codes
             if hasattr(e.response, "status_code"):
                 status_code = e.response.status_code
                 error_response = f"RAG接口HTTP错误（状态码：{status_code}）"
 
-                # 尝试获取响应内容中的错误信息
+                # Try extracting error details from response body
                 try:
                     error_detail = e.response.json().get("error", {}).get("message", "")
                     if error_detail:
@@ -151,12 +151,12 @@ def search_from_ragflow(conn, question=None):
         return ActionResponse(Action.RESPONSE, None, error_response)
 
     except Exception as e:
-        # 其他异常
+        # Other exceptions
         error_type = type(e).__name__
         logger.bind(tag=TAG).error(
             f"RAGflow处理异常，异常类型：{error_type}，详情：{str(e)}"
         )
 
-        # 提供详细的错误信息
+        # Provide detailed error info
         error_response = f"RAG接口处理异常（{error_type}）：{str(e)}"
         return ActionResponse(Action.RESPONSE, None, error_response)

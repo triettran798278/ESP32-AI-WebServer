@@ -7,10 +7,10 @@
     <title>小智服务器测试页面</title>
     <link rel="stylesheet" href="css/test_page.css">
     <script>
-        // 检测是否使用file://协议打开
+        // Detect if opened via file:// protocol
         if (window.location.protocol === 'file:') {
             document.addEventListener('DOMContentLoaded', function () {
-                // 创建警告框
+                // Create warning box
                 const warningDiv = document.createElement('div');
                 warningDiv.id = 'fileProtocolWarning';
                 warningDiv.innerHTML = `
@@ -37,9 +37,9 @@
             正在加载Opus库...
         </div>
 
-        <!-- 两栏布局：设备配置和连接信息 -->
+        <!-- Two-column layout: device config and connection info -->
         <div class="two-column-layout">
-            <!-- 设备配置面板 -->
+            <!-- Device configuration panel -->
             <div class="section">
                 <h2>
                     设备配置
@@ -68,7 +68,7 @@
                 </div>
             </div>
 
-            <!-- 连接信息面板 -->
+            <!-- Connection info panel -->
             <div class="section">
                 <h2>
                     连接信息
@@ -127,7 +127,7 @@
             </div>
         </div>
 
-        <!-- MCP 工具管理区域 -->
+        <!-- MCP tool management section -->
         <div class="section">
             <h2>
                 MCP 工具管理
@@ -138,7 +138,7 @@
             </h2>
             <div class="config-panel" id="mcpToolsPanel">
                 <div id="mcpToolsContainer" class="mcp-tools-container">
-                    <!-- 工具列表将动态插入这里 -->
+                    <!-- Tool list will be dynamically inserted here -->
                 </div>
                 <div style="text-align: center; padding: 15px 0;">
                     <button class="btn" id="addMcpToolBtn" style="background-color: #4caf50;">
@@ -148,7 +148,7 @@
             </div>
         </div>
 
-        <!-- MCP 工具编辑模态框 -->
+        <!-- MCP tool edit modal -->
         <div id="mcpToolModal"
             style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 9999; overflow-y: auto;">
             <div
@@ -219,10 +219,10 @@
         </div>
     </div>
 
-    <!-- Opus解码库 -->
+    <!-- Opus decoder library -->
     <script src="js/utils/libopus.js"></script>
 
-    <!-- 主应用入口 -->
+    <!-- Main application entry point -->
     <script type="module" src="js/app.js"></script>
 </body>
 

@@ -1,9 +1,9 @@
-// 音频录制模块
+// Audio recording module
 import { log } from '../../utils/logger.js';
 import { initOpusEncoder } from './opus-codec.js';
 import { getAudioPlayer } from './player.js';
 
-// 音频录制器类
+// Audio recorder class
 export class AudioRecorder {
     constructor() {
         this.isRecording = false;
@@ -20,24 +20,24 @@ export class AudioRecorder {
         this.recordingTimer = null;
         this.websocket = null;
 
-        // 回调函数
+        // Callback functions
         this.onRecordingStart = null;
         this.onRecordingStop = null;
         this.onVisualizerUpdate = null;
     }
 
-    // 设置WebSocket实例
+    // Set WebSocket instance
     setWebSocket(ws) {
         this.websocket = ws;
     }
 
-    // 获取AudioContext实例
+    // Get AudioContext instance
     getAudioContext() {
         const audioPlayer = getAudioPlayer();
         return audioPlayer.getAudioContext();
     }
 
-    // 初始化编码器
+    // Initialize encoder
     initEncoder() {
         if (!this.opusEncoder) {
             this.opusEncoder = initOpusEncoder();
@@ -45,7 +45,7 @@ export class AudioRecorder {
         return this.opusEncoder;
     }
 
-    // PCM处理器代码
+    // PCM processor code
     getAudioProcessorCode() {
         return `
             class AudioRecorderProcessor extends AudioWorkletProcessor {
@@ -104,7 +104,7 @@ export class AudioRecorder {
         `;
     }
 
-    // 创建音频处理器
+    // Create audio processor
     async createAudioProcessor() {
         this.audioContext = this.getAudioContext();
 
@@ -140,7 +140,7 @@ export class AudioRecorder {
         }
     }
 
-    // 创建ScriptProcessor作为回退
+    // Create ScriptProcessor as fallback
     createScriptProcessor() {
         try {
             const frameSize = 4096;
@@ -172,7 +172,7 @@ export class AudioRecorder {
         }
     }
 
-    // 处理PCM缓冲数据
+    // Process PCM buffer data
     processPCMBuffer(buffer) {
         if (!this.isRecording) return;
 
@@ -191,7 +191,7 @@ export class AudioRecorder {
         }
     }
 
-    // 编码并发送Opus数据
+    // Encode and send Opus data
     encodeAndSendOpus(pcmData = null) {
         if (!this.opusEncoder) {
             log('Opus编码器未初始化', 'error');
@@ -235,16 +235,16 @@ export class AudioRecorder {
         }
     }
 
-    // 开始录音
+    // Start recording
     async start() {
         if (this.isRecording) return false;
 
         try {
-            // 检查是否有WebSocketHandler实例
+            // Check if WebSocketHandler instance exists
             const { getWebSocketHandler } = await import('../network/websocket.js');
             const wsHandler = getWebSocketHandler();
 
-            // 如果机器正在说话，发送打断消息
+            // If remote is speaking, send abort message
             if (wsHandler && wsHandler.isRemoteSpeaking && wsHandler.currentSessionId) {
                 const abortMessage = {
                     session_id: wsHandler.currentSessionId,
@@ -305,7 +305,7 @@ export class AudioRecorder {
                 this.audioProcessor.port.postMessage({ command: 'start' });
             }
 
-            // 发送监听开始消息
+            // Send listen start message
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                 const listenMessage = {
                     type: 'listen',
@@ -320,13 +320,13 @@ export class AudioRecorder {
                 return false;
             }
 
-            // 开始可视化
+            // Start visualization
             if (this.onVisualizerUpdate) {
                 const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                 this.startVisualization(dataArray);
             }
 
-            // 启动录音计时器
+            // Start recording timer
             let recordingSeconds = 0;
             this.recordingTimer = setInterval(() => {
                 recordingSeconds += 0.1;
@@ -344,7 +344,7 @@ export class AudioRecorder {
         }
     }
 
-    // 开始可视化
+    // Start visualization
     startVisualization(dataArray) {
         const draw = () => {
             this.visualizationRequest = requestAnimationFrame(() => draw());
@@ -360,7 +360,7 @@ export class AudioRecorder {
         draw();
     }
 
-    // 停止录音
+    // Stop recording
     stop() {
         if (!this.isRecording) return false;
 
@@ -391,10 +391,10 @@ export class AudioRecorder {
                 this.recordingTimer = null;
             }
 
-            // 编码并发送剩余的数据
+            // Encode and send remaining data
             this.encodeAndSendOpus();
 
-            // 发送结束信号
+            // Send end signal
             if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
                 const emptyOpusFrame = new Uint8Array(0);
                 this.websocket.send(emptyOpusFrame);
@@ -421,13 +421,13 @@ export class AudioRecorder {
         }
     }
 
-    // 获取分析器
+    // Get analyser
     getAnalyser() {
         return this.analyser;
     }
 }
 
-// 创建单例
+// Create singleton
 let audioRecorderInstance = null;
 
 export function getAudioRecorder() {

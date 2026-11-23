@@ -54,13 +54,13 @@ class PromptManager:
         self.base_prompt_template = None
         self.last_update_time = 0
 
-        # 导入全局缓存管理器
+        # Import global cache manager
         from core.utils.cache.manager import cache_manager, CacheType
 
         self.cache_manager = cache_manager
         self.CacheType = CacheType
         
-        # 初始化上下文源
+        # Initialize context provider
         from core.utils.context_provider import ContextDataProvider
         self.context_provider = ContextDataProvider(config, self.logger)
         self.context_data = {}
@@ -75,19 +75,19 @@ class PromptManager:
                 template_path = "agent-base-prompt.txt"
             cache_key = f"prompt_template:{template_path}"
 
-            # 先从缓存获取
+            # Check cache first
             cached_template = self.cache_manager.get(self.CacheType.CONFIG, cache_key)
             if cached_template is not None:
                 self.base_prompt_template = cached_template
                 self.logger.bind(tag=TAG).debug("从缓存加载基础提示词模板")
                 return
 
-            # 缓存未命中，从文件读取
+            # Cache miss; read from file
             if os.path.exists(template_path):
                 with open(template_path, "r", encoding="utf-8") as f:
                     template_content = f.read()
 
-                # 存入缓存（CONFIG类型默认不自动过期，需要手动失效）
+                # Store in cache (CONFIG type does not auto-expire; requires manual invalidation)
                 self.cache_manager.set(
                     self.CacheType.CONFIG, cache_key, template_content
                 )
@@ -112,7 +112,7 @@ class PromptManager:
                 f"设备 {device_id} 无缓存提示词，使用传入的提示词"
             )
 
-        # 使用传入的提示词并缓存（如果有设备ID）
+        # Use provided prompt and cache if device_id is present
         if device_id:
             device_cache_key = f"device_prompt:{device_id}"
             self.cache_manager.set(self.CacheType.CONFIG, device_cache_key, user_prompt)
@@ -138,19 +138,19 @@ class PromptManager:
     def _get_location_info(self, client_ip: str) -> str:
         """获取位置信息"""
         try:
-            # 先从缓存获取
+            # Check cache first
             cached_location = self.cache_manager.get(self.CacheType.LOCATION, client_ip)
             if cached_location is not None:
                 return cached_location
 
-            # 缓存未命中，调用API获取
+            # Cache miss; fetch from API
             from core.utils.util import get_ip_info
 
             ip_info = get_ip_info(client_ip, self.logger)
             city = ip_info.get("city", "未知位置")
             location = f"{city}"
 
-            # 存入缓存
+            # Store in cache
             self.cache_manager.set(self.CacheType.LOCATION, client_ip, location)
             return location
         except Exception as e:
@@ -160,16 +160,16 @@ class PromptManager:
     def _get_weather_info(self, conn, location: str) -> str:
         """获取天气信息"""
         try:
-            # 先从缓存获取
+            # Check cache first
             cached_weather = self.cache_manager.get(self.CacheType.WEATHER, location)
             if cached_weather is not None:
                 return cached_weather
 
-            # 缓存未命中，调用get_weather函数获取
+            # Cache miss; call get_weather
             from plugins_func.functions.get_weather import get_weather
             from plugins_func.register import ActionResponse
 
-            # 调用get_weather函数
+            # Call get_weather
             result = get_weather(conn, location=location, lang="zh_CN")
             if isinstance(result, ActionResponse):
                 weather_report = result.result
@@ -193,7 +193,7 @@ class PromptManager:
                     or "weather_info" in self.base_prompt_template
                 )
             ):
-                # 获取位置信息（使用全局缓存）
+                # Get location info (using global cache)
                 local_address = self._get_location_info(client_ip)
 
             if (
@@ -201,10 +201,10 @@ class PromptManager:
                 and "weather_info" in self.base_prompt_template
                 and local_address
             ):
-                # 获取天气信息（使用全局缓存）
+                # Get weather info (using global cache)
                 self._get_weather_info(conn, local_address)
             
-            # 获取配置的上下文数据
+            # Get configured context data
             if hasattr(conn, "device_id") and conn.device_id:
                 if self.base_prompt_template and "dynamic_context" in self.base_prompt_template:
                     self.context_data = self.context_provider.fetch_all(conn.device_id)
@@ -224,27 +224,27 @@ class PromptManager:
             return user_prompt
 
         try:
-            # 获取最新的时间信息（不缓存）
+            # Get latest time info (not cached)
             today_date, today_weekday, lunar_date = self._get_current_time_info()
 
-            # 获取缓存的上下文信息
+            # Get cached context info
             local_address = ""
             weather_info = ""
 
             if client_ip:
-                # 获取位置信息（从全局缓存）
+                # Get location info (from global cache)
                 local_address = (
                     self.cache_manager.get(self.CacheType.LOCATION, client_ip) or ""
                 )
 
-                # 获取天气信息（从全局缓存）
+                # Get weather info (from global cache)
                 if local_address:
                     weather_info = (
                         self.cache_manager.get(self.CacheType.WEATHER, local_address)
                         or ""
                     )
 
-            # 替换模板变量
+            # Render template variables
             template = Template(self.base_prompt_template)
             enhanced_prompt = template.render(
                 base_prompt=user_prompt,

@@ -16,13 +16,13 @@ class ServerTextMessageHandler(TextMessageHandler):
         return TextMessageType.SERVER
 
     async def handle(self, conn, msg_json: Dict[str, Any]) -> None:
-        # 如果配置是从API读取的，则需要验证secret
+        # Verify secret if config is loaded from API
         if not conn.read_config_from_api:
             return
-        # 获取post请求的secret
+        # Get secret from POST request
         post_secret = msg_json.get("content", {}).get("secret", "")
         secret = conn.config["manager-api"].get("secret", "")
-        # 如果secret不匹配，则返回
+        # Return error if secret does not match
         if post_secret != secret:
             await conn.websocket.send(
                 json.dumps(
@@ -34,10 +34,10 @@ class ServerTextMessageHandler(TextMessageHandler):
                 )
             )
             return
-        # 动态更新配置
+        # Dynamically update config
         if msg_json["action"] == "update_config":
             try:
-                # 更新WebSocketServer的配置
+                # Update WebSocketServer config
                 if not conn.server:
                     await conn.websocket.send(
                         json.dumps(
@@ -64,7 +64,7 @@ class ServerTextMessageHandler(TextMessageHandler):
                     )
                     return
 
-                # 发送成功响应
+                # Send success response
                 await conn.websocket.send(
                     json.dumps(
                         {
@@ -87,6 +87,6 @@ class ServerTextMessageHandler(TextMessageHandler):
                         }
                     )
                 )
-        # 重启服务器
+        # Restart server
         elif msg_json["action"] == "restart":
             await conn.handle_restart(msg_json)

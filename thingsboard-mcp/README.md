@@ -31,7 +31,7 @@ A minimal, modular **Model Context Protocol (MCP)** server enabling AI agents to
                  │ REST API (X-Authorization: ApiKey / Bearer)
                  ▼
 ┌─────────────────────────────────┐
-│       ThingsBoard CE (8080)     │
+│      CodeHelpers ThingsBoard    │
 └─────────────────────────────────┘
 ```
 
@@ -54,7 +54,7 @@ The server dynamically resolves ThingsBoard settings using the following lookup 
   "role": "IoT Supervisor",
   "integrations": {
     "thingsboard": {
-      "host": "http://localhost:8080",
+      "host": "https://codehelpers.tech",
       "api_key": "",
       "timeout_seconds": 10
     }

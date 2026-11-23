@@ -5,6 +5,7 @@ and coordinates ThingsBoard MCP integration.
 """
 
 import asyncio
+from contextlib import asynccontextmanager
 import hashlib
 import hmac
 import json
@@ -17,7 +18,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import unquote, urlsplit
+from urllib.parse import urlsplit
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, WebSocket, WebSocketDisconnect, status
 from starlette.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,8 +27,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .store import PlatformStore, platform_store, normalize_mac
-from .accounts import AccountStore
-from . import agent_api_tools
+from .accounts import AccountStore, bootstrap_from_env
+from . import agent_api_tools, tool_pipeline
 from .dashboard_integration import router as dashboard_router
 try:
     from .device_db import device_db
@@ -53,8 +54,16 @@ HOST_IP = os.getenv("HOST_IP", "localhost")
 PUBLIC_WS_URL = os.getenv('PUBLIC_WS_URL', f'ws://{HOST_IP}:{WS_PUBLIC_PORT}/xiaozhi/v1/')
 PUBLIC_OTA_URL = os.getenv('PUBLIC_OTA_URL', f'http://{HOST_IP}:8005/xiaozhi/ota/')
 
-app = FastAPI(title="XiaoZhi Platform Management Bridge", version="1.0.0")
 accounts = AccountStore()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    bootstrap_from_env(accounts)
+    yield
+
+
+app = FastAPI(title="XiaoZhi Platform Management Bridge", version="1.0.0", lifespan=lifespan)
 app.include_router(dashboard_router)
 
 app.add_middleware(
@@ -500,200 +509,22 @@ async def run_agent_chat(agent: Dict[str, Any], req: AgentChatRequest):
     )
     prompt = response_prompt(agent, prompt)
     model_name = agent.get("llm", {}).get("model", "qwen2.5:3b-instruct")
-
-    tb_tools = list(agent_api_tools.MCP_TOOLS) + list(agent_api_tools.TOOLS) + [
-        {"type": "function", "function": {
-            "name": "get_current_time",
-            "description": "Get the current local date and time.",
-            "parameters": {"type": "object", "properties": {}},
-        }}
-    ]
-    prompt += ("\nComplete the request in this response using ThingsBoard MCP tools; never invent data or success. "
-               "Only send RPC when explicitly asked to control a device. "
-               "Use list_available_rpc for the target device (or list_devices first if unsure) and prefer exact device names over guessing UUIDs. "
-               "Use setPower with {\"state\": true} for on/bật, {\"state\": false} for off/tắt, and togglePower only for toggle/đảo trạng thái if registered. "
-               "Never control an unrelated device if the requested device is not in list_devices, and never call setPower or togglePower for unsupported actions (brightness, dimmer, timer, color) — refuse and list the supported methods instead. "
-               "For conditional requests (if temp > X), read telemetry first and only call RPC in a later turn if the condition is true. "
-               "If execute_device_action returns 'RPC not sent' with available methods/schemas, retry immediately with the exact registered method and params. "
-               "Never repeat an RPC after it was already sent.")
-    messages = [{"role": "system", "content": prompt}]
-    for h in (req.history or [])[-6:]:
-        r = h.get("role")
-        c = h.get("content")
-        if r in ("user", "assistant") and c:
-            messages.append({"role": r, "content": c})
-    messages.append({"role": "user", "content": user_text})
-
-    import httpx
     ollama_url = os.getenv("OLLAMA_URL", "http://ollama:11434").rstrip("/")
-
     tb_conf = agent.get("integrations", {}).get("thingsboard", {})
-    tb_host = (tb_conf.get("host") or "").rstrip("/")
-    tb_key = tb_conf.get("api_key") or ""
-    if tb_host and tb_key:
-        tb_host = validate_thingsboard_origin(tb_host)
-    tb_headers = {"User-Agent": "XiaoZhi-Platform/1.0", "X-Authorization": f"ApiKey {tb_key}"}
-
-    executed_tools = []
-
-    validated_tb_conf = {**tb_conf, "host": tb_host, "api_key": tb_key}
-    allowed_tb_tools = {t["function"]["name"] for t in agent_api_tools.MCP_TOOLS + agent_api_tools.TOOLS}
-
-    async def execute_tool(tool_name: str, args_dict: Dict[str, Any]) -> str:
-        if tool_name == "get_current_time":
-            return json.dumps({"time": time.strftime("%Y-%m-%d %H:%M:%S %Z")})
-        if tool_name not in allowed_tb_tools:
-            return json.dumps({"status": "error", "message": f"Unknown tool: {tool_name}"})
-        if not tb_host or not tb_key:
-            return json.dumps({"status": "error", "message": "ThingsBoard host or API key is not configured."})
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            if tool_name in ("thingsboard_get", "thingsboard_rpc"):
-                args_dict = dict(args_dict)
-                path = args_dict.get("path", "") if tool_name == "thingsboard_get" else ""
-                match = re.match(r"^(/api/plugins/telemetry/DEVICE/)([^/?]+)(/.*)$", path) if isinstance(path, str) else None
-                identifier = unquote(match.group(2)) if match else args_dict.get("device_id", "") if tool_name == "thingsboard_rpc" else ""
-                if identifier:
-                    try:
-                        uuid.UUID(identifier)
-                    except (ValueError, TypeError, AttributeError):
-                        devices = await agent_api_tools._all_devices(client, tb_host, tb_headers)
-                        device = agent_api_tools._matching_device(devices, identifier)
-                        if not device:
-                            return json.dumps({"status": "error", "message": f"Device '{identifier}' not found or name is ambiguous"})
-                        device_id = device["id"]["id"]
-                        if match:
-                            args_dict["path"] = match.group(1) + device_id + match.group(3)
-                        else:
-                            args_dict["device_id"] = device_id
-            result = await agent_api_tools.execute(
-                client, validated_tb_conf, tool_name, args_dict,
-                read_only=agent.get("tool_policy") == "read_only_telemetry",
-                profile_id=agent.get("id"),
-            )
-            return json.dumps(result, ensure_ascii=False)
 
     try:
-        async with httpx.AsyncClient(timeout=25.0) as client:
-            waiting_retried = False
-            empty_retried = False
-            action_nudges = 0
-            described_action_re = re.compile(
-                r'<\s*/?\s*(?:tools?|tool_call)\b'
-                r'|`(?:execute_device_action|send_rpc|thingsboard_rpc|list_available_rpc|discover_capabilities)`'
-                r'|(?:sẽ|sẽ tiến hành)\s+(?:gọi|gửi|thực hiện|dùng|sử dụng|bật|tắt|điều khiển)\b'
-                r'|(?:i will|i\'ll|we will|we\'ll|let\'s|let me)\s+(?:call|send|execute|use|proceed|turn|set|toggle|control)\b',
-                re.IGNORECASE,
-            )
-            unverified_action_re = re.compile(
-                r'\b(?:has|have)\s+been\s+(?:\w+\s+)?(?:sent|submitted|executed|dispatched|triggered|set|updated|changed|turned\s+(?:on|off)|switched\s+(?:on|off)|powered\s+(?:on|off)|toggled|applied)\b'
-                r'|\b(?:device|relay|switch)\s+has\s+(?:\w+\s+)?(?:received|processed|executed|acknowledged)\b'
-                r'|\b(?:i|we)\s+(?:have\s+)?(?:\w+\s+)?(?:sent|submitted|executed|set|turned\s+(?:on|off)|switched\s+(?:on|off)|powered\s+(?:on|off)|toggled)\b.*\b(?:command|rpc|power|device|relay|switch|tasmota)\b'
-                r'|\bđã\s+(?:được\s+)?(?:bật|tắt|đặt|cập\s+nhật|gửi|gọi|thực\s+hiện|chuyển|kích\s+hoạt|điều\s+khiển)\b',
-                re.IGNORECASE,
-            )
-            control_request_re = re.compile(
-                r'^(?!.*\?)(?:(?:(?:hãy|vui lòng)\s+)?(?:bật|tắt|ngắt|đảo\s+trạng\s+thái)\b'
-                r'|(?!.*\b(?:đang|là gì|bao nhiêu|như thế nào|status|what|which|is|are|check|kiểm tra|xem)\b)'
-                r'.*(?:\b(?:bật|tắt|ngắt|đảo trạng thái)\b|\b(?:turn|switch|power)\s+(?:on|off)\b|\b(?:toggle|set\s+power)\b))',
-                re.IGNORECASE,
-            )
-            not_found_reply_re = re.compile(
-                r'\?|\b(?:not found|cannot find|could not find|does not exist|no (?:such )?device|ambiguous|specify|clarify|which device|which one|please provide|cannot|unable|unsupported|không tìm thấy|không có thiết bị|không tồn tại|không hỗ trợ|mơ hồ|chọn|cụ thể|thiết bị nào)\b',
-                re.IGNORECASE,
-            )
-            can_control = bool(tb_host and tb_key and agent.get("tool_policy") != "read_only_telemetry")
-            is_control_request = can_control and bool(control_request_re.search(user_text))
-            def _rpc_dispatched(tool):
-                if tool['name'] not in ('send_rpc', 'thingsboard_rpc', 'execute_device_action'):
-                    return False
-                try:
-                    res = json.loads(tool['result'])
-                except (ValueError, TypeError):
-                    return True
-                return res.get('error_code') not in ('unsupported_method', 'invalid_params', 'device_not_found', 'forbidden')
-
-            for attempt in range(6):
-                model_response = await client.post(
-                    f"{ollama_url}/v1/chat/completions",
-                    json={"model": model_name, "messages": messages, "tools": tb_tools, "stream": False, "temperature": 0.1 if empty_retried else 0}
-                )
-                model_response.raise_for_status()
-                msg = model_response.json().get("choices", [{}])[0].get("message", {})
-                tool_calls = msg.get("tool_calls") or []
-                if not tool_calls:
-                    content = (msg.get("content") or "").strip()
-                    if not content:
-                        if not empty_retried:
-                            empty_retried = True
-                            continue
-                        raise ValueError("Model returned an empty response")
-                    rpc_attempted = any(tool['name'] in ('send_rpc', 'thingsboard_rpc', 'execute_device_action') for tool in executed_tools)
-                    rpc_sent = any(_rpc_dispatched(tool) for tool in executed_tools)
-                    if described_action_re.search(content):
-                        if action_nudges >= 2 or rpc_sent:
-                            content = ("Tôi chưa thể xác nhận yêu cầu điều khiển đã hoàn tất." if agent.get("language", "vi") == "vi"
-                                       else "I could not confirm that the control request completed.")
-                        else:
-                            action_nudges += 1
-                            # Qwen2.5's Ollama template drops role="system" messages after index 0, so nudges use user turns.
-                            messages.append({"role": "assistant", "content": "I have not called the device tool yet."})
-                            messages.append({"role": "user", "content": f"Do not describe the tool call in text. Call execute_device_action (or list_available_rpc) now for {user_text!r} using a structured tool call (state=true for on/bật, state=false for off/tắt)."})
-                            continue
-                    missing_control_rpc = (
-                        is_control_request and not rpc_attempted
-                        and not (executed_tools and not_found_reply_re.search(content))
-                    )
-                    if not rpc_sent and (unverified_action_re.search(content) or missing_control_rpc):
-                        if action_nudges >= 2:
-                            content = ("Tôi chưa thể xác nhận yêu cầu điều khiển đã hoàn tất." if agent.get("language", "vi") == "vi"
-                                       else "I could not confirm that the control request completed.")
-                        else:
-                            action_nudges += 1
-                            messages.append({"role": "assistant", "content": "I have not executed the device action yet."})
-                            messages.append({"role": "user", "content": f"No RPC tool was called yet for {user_text!r}. Call execute_device_action now using a registered method (setPower with state=true for on/bật, state=false for off/tắt, togglePower for toggle/đảo trạng thái; call list_available_rpc first if needed, or say not found if the device does not exist)."})
-                            continue
-                    if not rpc_sent and re.search(r"please wait|hold on|one moment|(?:i will|i'll) (?:get|fetch|retrieve|check)|(?:hãy|vui lòng) (?:đợi|chờ)|đợi một chút|(?:đang|sẽ) (?:lấy|tìm|truy xuất|kiểm tra)", content, re.IGNORECASE):
-                        if waiting_retried:
-                            content = ("Tôi chưa thể hoàn thành yêu cầu này." if agent.get("language", "vi") == "vi"
-                                       else "I could not complete this request.")
-                        else:
-                            waiting_retried = True
-                            messages.append({"role": "assistant", "content": content})
-                            messages.append({"role": "user", "content": "Do not ask me to wait. Call the necessary tool now or explain clearly why you cannot complete the request."})
-                            continue
-                    return {"reply": content, "tool_calls": executed_tools}
-                messages.append({**msg, "content": ""})
-                for tc in tool_calls:
-                    fn = tc.get("function", {})
-                    tc_id = tc.get("id", "call_default")
-                    fn_name = fn.get("name", "")
-                    raw_args = fn.get("arguments", "{}")
-                    try:
-                        args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
-                        if not isinstance(args, dict):
-                            args = {}
-                    except (ValueError, TypeError):
-                        args = {}
-                    try:
-                        tool_res_str = await execute_tool(fn_name, args)
-                    except Exception as exc:
-                        logger.warning("Tool %s failed: %s", fn_name, type(exc).__name__)
-                        tool_res_str = json.dumps({"status": "error", "message": "ThingsBoard request failed or timed out."})
-                    executed_tools.append({"id": tc_id, "name": fn_name,
-                        "arguments": json.dumps(args, ensure_ascii=False), "result": tool_res_str})
-                    messages.append({"role": "tool", "tool_call_id": tc_id, "content": tool_res_str})
-            # Wrap up gracefully without tools if the model spent all rounds calling tools.
-            final_response = await client.post(
-                f"{ollama_url}/v1/chat/completions",
-                json={"model": model_name, "messages": messages, "stream": False, "temperature": 0}
-            )
-            final_response.raise_for_status()
-            final_content = (final_response.json().get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
-            if not final_content:
-                final_content = ("Tôi chưa thể hoàn thành yêu cầu này." if agent.get("language", "vi") == "vi"
-                                 else "I could not complete this request.")
-            return {"reply": final_content, "tool_calls": executed_tools}
-
+        return await tool_pipeline.run_tool_pipeline(
+            agent=agent,
+            user_text=user_text,
+            history=req.history or [],
+            base_prompt=prompt,
+            tb_conf=tb_conf,
+            validate_origin=validate_thingsboard_origin,
+            ollama_url=ollama_url,
+            model_name=model_name,
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error during agent chat inference: %s", e)
         raise HTTPException(status_code=500, detail=f"LLM inference failure: {str(e)}")

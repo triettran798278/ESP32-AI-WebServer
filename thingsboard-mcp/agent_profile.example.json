@@ -5,7 +5,7 @@
   "status": "online",
   "integrations": {
     "thingsboard": {
-      "host": "http://localhost:8080",
+      "host": "https://codehelpers.tech",
       "api_key": "",
       "timeout_seconds": 10
     }

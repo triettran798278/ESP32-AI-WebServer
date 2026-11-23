@@ -25,7 +25,7 @@ class TTSProvider(TTSProviderBase):
         else:
             self.voice = config.get("voice")
 
-        # 处理空字符串的情况
+        # Handle empty string values
         speed_ratio = config.get("speed_ratio", "1.0")
         volume_ratio = config.get("volume_ratio", "1.0")
         pitch_ratio = config.get("pitch_ratio", "1.0")

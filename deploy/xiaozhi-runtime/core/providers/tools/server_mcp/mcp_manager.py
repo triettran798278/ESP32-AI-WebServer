@@ -50,13 +50,13 @@ class ServerMCPManager:
         """初始化单个MCP服务"""
         client = None
         try:
-            # 初始化服务端MCP客户端
+            # Initialize server MCP client
             logger.bind(tag=TAG).info(f"初始化服务端MCP客户端: {name}")
             client = ServerMCPClient(srv_config)
-            # 设置超时时间10秒
+            # Set timeout to 10 seconds
             await asyncio.wait_for(client.initialize(logging_callback=self.logging_callback), timeout=10)
 
-            # 使用锁保护共享状态的修改
+            # Protect shared state updates with lock
             async with self._init_lock:
                 self.clients[name] = client
                 client_tools = client.get_available_tools()
@@ -91,9 +91,9 @@ class ServerMCPManager:
         if tasks:
             await asyncio.gather(*tasks)
 
-        # 输出当前支持的服务端MCP工具列表
+        # Log currently supported server MCP tools
         if hasattr(self.conn, "func_handler") and self.conn.func_handler:
-            # 刷新工具缓存以确保服务端MCP工具被正确加载
+            # Refresh tool cache to ensure server MCP tools are loaded properly
             if hasattr(self.conn.func_handler, "tool_manager"):
                 self.conn.func_handler.tool_manager.refresh_tools()
             self.conn.func_handler.current_support_functions()
@@ -116,10 +116,10 @@ class ServerMCPManager:
         """执行工具调用，失败时会尝试重新连接"""
         logger.bind(tag=TAG).info(f"执行服务端MCP工具 {tool_name}，参数: {arguments}")
 
-        max_retries = 3  # 最大重试次数
-        retry_interval = 2  # 重试间隔(秒)
+        max_retries = 3  # Max retry attempts
+        retry_interval = 2  # Retry interval (seconds)
 
-        # 找到对应的客户端
+        # Find the corresponding client
         client_name = None
         target_client = None
         for name, client in self.clients.items():
@@ -131,12 +131,12 @@ class ServerMCPManager:
         if not target_client:
             raise ValueError(f"工具 {tool_name} 在任意MCP服务中未找到")
 
-        # 带重试机制的工具调用
+        # Tool invocation with retry
         for attempt in range(max_retries):
             try:
                 return await target_client.call_tool(tool_name, arguments, progress_callback=self.progress_callback)
             except Exception as e:
-                # 最后一次尝试失败时直接抛出异常
+                # Raise directly on final attempt failure
                 if attempt == max_retries - 1:
                     raise
 
@@ -144,15 +144,15 @@ class ServerMCPManager:
                     f"执行工具 {tool_name} 失败 (尝试 {attempt+1}/{max_retries}): {e}"
                 )
 
-                # 尝试重新连接
+                # Attempt to reconnect
                 logger.bind(tag=TAG).info(
                     f"重试前尝试重新连接 MCP 客户端 {client_name}"
                 )
                 try:
-                    # 关闭旧的连接
+                    # Close old connection
                     await target_client.cleanup()
 
-                    # 重新初始化客户端
+                    # Re-initialize client
                     config = self.load_config()
                     if client_name in config:
                         client = ServerMCPClient(config[client_name])
@@ -171,7 +171,7 @@ class ServerMCPManager:
                         f"Failed to reconnect MCP client {client_name}: {reconnect_error}"
                     )
 
-                # 等待一段时间再重试
+                # Wait before retrying
                 await asyncio.sleep(retry_interval)
 
     async def cleanup_all(self) -> None:
@@ -185,7 +185,7 @@ class ServerMCPManager:
                 logger.bind(tag=TAG).error(f"关闭服务端MCP客户端 {name} 时出错: {e}")
         self.clients.clear()
 
-    # 可选回调方法
+    # Optional callback methods
 
     async def logging_callback(self, params: LoggingMessageNotificationParams):
         logger.bind(tag=TAG).info(f"[Server Log - {params.level.upper()}] {params.data}")

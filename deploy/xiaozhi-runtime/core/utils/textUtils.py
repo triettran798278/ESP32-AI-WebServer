@@ -38,11 +38,11 @@ EMOJI_RANGES = [
 def get_string_no_punctuation_or_emoji(s):
     """去除字符串首尾的空格、标点符号和表情符号"""
     chars = list(s)
-    # 处理开头的字符
+    # Trim leading characters
     start = 0
     while start < len(chars) and is_punctuation_or_emoji(chars[start]):
         start += 1
-    # 处理结尾的字符
+    # Trim trailing characters
     end = len(chars) - 1
     while end >= start and is_punctuation_or_emoji(chars[end]):
         end -= 1
@@ -51,26 +51,26 @@ def get_string_no_punctuation_or_emoji(s):
 
 def is_punctuation_or_emoji(char):
     """检查字符是否为空格、指定标点或表情符号"""
-    # 定义需要去除的中英文标点（包括全角/半角）
+    # Chinese and English punctuation to strip (including full-width/half-width)
     punctuation_set = {
         "，",
-        ",",  # 中文逗号 + 英文逗号
+        ",",  # Chinese comma + English comma
         "。",
-        ".",  # 中文句号 + 英文句号
+        ".",  # Chinese period + English period
         "！",
-        "!",  # 中文感叹号 + 英文感叹号
+        "!",  # Chinese exclamation mark + English exclamation mark
         "“",
         "”",
-        '"',  # 中文双引号 + 英文引号
+        '"',  # Chinese double quotes + English quote
         "：",
-        ":",  # 中文冒号 + 英文冒号
+        ":",  # Chinese colon + English colon
         "-",
-        "－",  # 英文连字符 + 中文全角横线
-        "、",  # 中文顿号
+        "－",  # English hyphen + Chinese full-width dash
+        "、",  # Chinese enumeration comma
         "[",
-        "]",  # 方括号
+        "]",  # Square brackets
         "【",
-        "】",  # 中文方括号
+        "】",  # Chinese square brackets
     }
     if char.isspace() or char in punctuation_set:
         return True

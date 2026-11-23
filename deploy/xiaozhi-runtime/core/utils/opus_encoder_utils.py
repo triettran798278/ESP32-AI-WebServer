@@ -25,26 +25,26 @@ class OpusEncoderUtils:
         self.sample_rate = sample_rate
         self.channels = channels
         self.frame_size_ms = frame_size_ms
-        # 计算每帧样本数 = 采样率 * 帧大小(毫秒) / 1000
+        # Samples per frame = sample_rate * frame_size_ms / 1000
         self.frame_size = (sample_rate * frame_size_ms) // 1000
-        # 总帧大小 = 每帧样本数 * 通道数
+        # Total frame size = samples per frame * channels
         self.total_frame_size = self.frame_size * channels
 
-        # 比特率和复杂度设置
+        # Bitrate and complexity settings
         self.bitrate = 24000  # bps
-        self.complexity = 10  # 最高质量
+        self.complexity = 10  # Highest quality
 
-        # 缓冲区初始化为空
+        # Initialize empty buffer
         self.buffer = np.array([], dtype=np.int16)
 
         try:
-            # 创建Opus编码器
+            # Create Opus encoder
             self.encoder = Encoder(
-                sample_rate, channels, constants.APPLICATION_AUDIO  # 音频优化模式
+                sample_rate, channels, constants.APPLICATION_AUDIO  # Audio optimization mode
             )
             self.encoder.bitrate = self.bitrate
             self.encoder.complexity = self.complexity
-            self.encoder.signal = constants.SIGNAL_VOICE  # 语音信号优化
+            self.encoder.signal = constants.SIGNAL_VOICE  # Voice signal optimization
         except Exception as e:
             logging.error(f"初始化Opus编码器失败: {e}")
             raise RuntimeError("初始化失败") from e
@@ -66,18 +66,18 @@ class OpusEncoderUtils:
         Returns:
             Opus数据包列表
         """
-        # 将字节数据转换为short数组
+        # Convert bytes to int16 array
         new_samples = self._convert_bytes_to_shorts(pcm_data)
 
-        # 校验PCM数据
+        # Validate PCM data
         self._validate_pcm_data(new_samples)
 
-        # 将新数据追加到缓冲区
+        # Append new data to buffer
         self.buffer = np.append(self.buffer, new_samples)
 
         offset = 0
 
-        # 处理所有完整帧
+        # Process all complete frames
         while offset <= len(self.buffer) - self.total_frame_size:
             frame = self.buffer[offset : offset + self.total_frame_size]
             output = self._encode(frame)
@@ -85,12 +85,12 @@ class OpusEncoderUtils:
                 callback(output)
             offset += self.total_frame_size
 
-        # 保留未处理的样本
+        # Keep remaining unprocessed samples
         self.buffer = self.buffer[offset:]
 
-        # 流结束时处理剩余数据
+        # Process remaining data at end of stream
         if end_of_stream and len(self.buffer) > 0:
-            # 创建最后一帧并用0填充
+            # Create last frame padded with zeros
             last_frame = np.zeros(self.total_frame_size, dtype=np.int16)
             last_frame[: len(self.buffer)] = self.buffer
 
@@ -102,12 +102,12 @@ class OpusEncoderUtils:
     def _encode(self, frame: np.ndarray) -> Optional[bytes]:
         """编码一帧音频数据"""
         try:
-            # 编码器已释放，跳过编码
+            # Encoder already released; skip encoding
             if not hasattr(self, 'encoder') or self.encoder is None:
                 return None
-            # 将numpy数组转换为bytes
+            # Convert numpy array to bytes
             frame_bytes = frame.tobytes()
-            # opuslib要求输入字节数必须是channels*2的倍数
+            # opuslib requires input byte count to be a multiple of channels * 2
             encoded = self.encoder.encode(frame_bytes, self.frame_size)
             return encoded
         except Exception as e:
@@ -117,16 +117,16 @@ class OpusEncoderUtils:
 
     def _convert_bytes_to_shorts(self, bytes_data: bytes) -> np.ndarray:
         """将字节数组转换为short数组 (16位PCM)"""
-        # 假设输入是小端字节序的16位PCM
+        # Assume little-endian 16-bit PCM input
         return np.frombuffer(bytes_data, dtype=np.int16)
 
     def _validate_pcm_data(self, pcm_shorts: np.ndarray) -> None:
         """验证PCM数据是否有效"""
-        # 16位PCM数据范围是 -32768 到 32767
+        # 16-bit PCM range is -32768 to 32767
         if np.any((pcm_shorts < -32768) | (pcm_shorts > 32767)):
             invalid_samples = pcm_shorts[(pcm_shorts < -32768) | (pcm_shorts > 32767)]
             logging.warning(f"发现无效PCM样本: {invalid_samples[:5]}...")
-            # 在实际应用中可以选择裁剪而不是抛出异常
+            # In practice, can clip instead of raising an exception
             # np.clip(pcm_shorts, -32768, 32767, out=pcm_shorts)
 
     def close(self):

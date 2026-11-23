@@ -1,10 +1,12 @@
-# Cấu hình Kết nối XiaoZhi Server (Full-Local AI Backend)
+# Cấu hình kết nối XiaoZhi Server
+
+> **Tài liệu lưu trữ.** Các lệnh và cấu hình dưới đây mô tả mô hình AI Gateway cũ trên cổng 8080. Để triển khai hệ thống hiện tại, xem [hướng dẫn triển khai cục bộ](../reproduce-deployment.md).
 
 Tài liệu này cung cấp thông số kết nối và mẫu cấu hình chuẩn (`YAML` và `JSON`) để kết nối **XiaoZhi ESP32 Server** tới cụm AI chạy cục bộ.
 
 ---
 
-## 1. Kiến trúc Cổng Hợp Nhất (Unified AI Gateway)
+## Kiến trúc cổng hợp nhất (Unified AI Gateway)
 
 Hệ thống đã được trang bị **AI Gateway** tập trung trên **Cổng 8080** với **1 API Key duy nhất**:
 - **Gateway Endpoint:** `http://<IP_MÁY_A>:8080/v1`
@@ -17,7 +19,7 @@ Gateway tự động nhận diện và phân luồng thông minh:
 
 ---
 
-## 2. Cấu hình mẫu `config.yaml` cho Máy B (XiaoZhi Server)
+## Cấu hình mẫu `config.yaml` cho XiaoZhi Server trên máy B
 
 Cực kỳ gọn gàng vì tất cả các module đều dùng chung 1 Base URL và 1 API Key:
 
@@ -63,7 +65,7 @@ server:
 
 ---
 
-## 3. Cấu hình JSON tổng quát
+## Cấu hình JSON tổng quát
 
 ```json
 {

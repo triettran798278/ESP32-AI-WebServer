@@ -32,7 +32,7 @@ async def report(conn, type, text, opus_data, report_time):
             audio_data = opus_to_wav(conn, opus_data)
         else:
             audio_data = None
-        # 执行异步上报
+        # Execute async report
         await manage_report(
             mac_address=conn.device_id,
             session_id=conn.session_id,
@@ -57,7 +57,7 @@ def opus_to_wav(conn, opus_data):
     """
     decoder = None
     try:
-        decoder = opuslib_next.Decoder(16000, 1)  # 16kHz, 单声道
+        decoder = opuslib_next.Decoder(16000, 1)  # 16kHz, mono
         pcm_data = []
 
         for opus_packet in opus_data:
@@ -70,11 +70,11 @@ def opus_to_wav(conn, opus_data):
         if not pcm_data:
             raise ValueError("没有有效的PCM数据")
 
-        # 创建WAV文件头
+        # Create WAV header
         pcm_data_bytes = b"".join(pcm_data)
         num_samples = len(pcm_data_bytes) // 2  # 16-bit samples
 
-        # WAV文件头
+        # WAV header
         wav_header = bytearray()
         wav_header.extend(b"RIFF")  # ChunkID
         wav_header.extend((36 + len(pcm_data_bytes)).to_bytes(4, "little"))  # ChunkSize
@@ -90,7 +90,7 @@ def opus_to_wav(conn, opus_data):
         wav_header.extend(b"data")  # Subchunk2ID
         wav_header.extend(len(pcm_data_bytes).to_bytes(4, "little"))  # Subchunk2Size
 
-        # 返回完整的WAV数据
+        # Return complete WAV data
         return bytes(wav_header) + pcm_data_bytes
     finally:
         if decoder is not None:
@@ -113,7 +113,7 @@ def enqueue_tts_report(conn, text, opus_data):
         opus_data: opus音频数据
     """
     try:
-        # 使用连接对象的队列，传入文本和二进制数据而非文件路径
+        # Use connection queue, passing text and binary data instead of file path
         if conn.chat_history_conf == 2:
             conn.report_queue.put((2, text, opus_data, int(time.time())))
             conn.logger.bind(tag=TAG).debug(
@@ -141,7 +141,7 @@ def enqueue_asr_report(conn, text, opus_data):
         opus_data: opus音频数据
     """
     try:
-        # 使用连接对象的队列，传入文本和二进制数据而非文件路径
+        # Use connection queue, passing text and binary data instead of file path
         if conn.chat_history_conf == 2:
             conn.report_queue.put((1, text, opus_data, int(time.time())))
             conn.logger.bind(tag=TAG).debug(

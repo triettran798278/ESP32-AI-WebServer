@@ -23,17 +23,17 @@ class UnifiedToolHandler:
         self.config = conn.config
         self.logger = setup_logging()
 
-        # 创建工具管理器
+        # Create tool manager
         self.tool_manager = ToolManager(conn)
 
-        # 创建各类执行器
+        # Create executors
         self.server_plugin_executor = ServerPluginExecutor(conn)
         self.server_mcp_executor = ServerMCPExecutor(conn)
         self.device_iot_executor = DeviceIoTExecutor(conn)
         self.device_mcp_executor = DeviceMCPExecutor(conn)
         self.mcp_endpoint_executor = MCPEndpointExecutor(conn)
 
-        # 注册执行器
+        # Register executors
         self.tool_manager.register_executor(
             ToolType.SERVER_PLUGIN, self.server_plugin_executor
         )
@@ -50,28 +50,28 @@ class UnifiedToolHandler:
             ToolType.MCP_ENDPOINT, self.mcp_endpoint_executor
         )
 
-        # 初始化标志
+        # Initialization flag
         self.finish_init = False
 
     async def _initialize(self):
         """异步初始化"""
         try:
-            # 自动导入插件模块
+            # Auto-import plugin modules
             auto_import_modules("plugins_func.functions")
 
-            # 初始化服务端MCP
+            # Initialize server MCP
             await self.server_mcp_executor.initialize()
 
-            # 初始化MCP接入点
+            # Initialize MCP endpoint
             await self._initialize_mcp_endpoint()
 
-            # 初始化Home Assistant（如果需要）
+            # Initialize Home Assistant if needed
             self._initialize_home_assistant()
 
             self.finish_init = True
             self.logger.debug("统一工具处理器初始化完成")
 
-            # 输出当前支持的所有工具列表
+            # Log currently supported tools
             self.current_support_functions()
 
         except Exception as e:
@@ -82,7 +82,7 @@ class UnifiedToolHandler:
         try:
             from .mcp_endpoint import connect_mcp_endpoint
 
-            # 从配置中获取MCP接入点URL
+            # Get MCP endpoint URL from config
             mcp_endpoint_url = self.config.get("mcp_endpoint", "")
 
             if (
@@ -96,7 +96,7 @@ class UnifiedToolHandler:
                 )
 
                 if mcp_endpoint_client:
-                    # 将MCP接入点客户端保存到连接对象中
+                    # Save MCP endpoint client to connection object
                     self.conn.mcp_endpoint_client = mcp_endpoint_client
                     self.logger.info("MCP接入点初始化成功")
                 else:
@@ -112,7 +112,7 @@ class UnifiedToolHandler:
 
             append_devices_to_prompt(self.conn)
         except ImportError:
-            pass  # 忽略导入错误
+            pass  # Ignore import error
         except Exception as e:
             self.logger.error(f"初始化Home Assistant失败: {e}")
 
@@ -140,7 +140,7 @@ class UnifiedToolHandler:
     ) -> Optional[ActionResponse]:
         """处理LLM函数调用"""
         try:
-            # 处理多函数调用
+            # Handle multiple function calls
             if "function_calls" in function_call_data:
                 responses = []
                 for call in function_call_data["function_calls"]:
@@ -150,11 +150,11 @@ class UnifiedToolHandler:
                     responses.append(result)
                 return self._combine_responses(responses)
 
-            # 处理单函数调用
+            # Handle single function call
             function_name = function_call_data["name"]
             arguments = function_call_data.get("arguments", {})
 
-            # 如果arguments是字符串，尝试解析为JSON
+            # If arguments is a string, try parsing as JSON
             if isinstance(arguments, str):
                 try:
                     arguments = json.loads(arguments) if arguments else {}
@@ -167,7 +167,7 @@ class UnifiedToolHandler:
 
             self.logger.debug(f"调用函数: {function_name}, 参数: {arguments}")
 
-            # 执行工具调用
+            # Execute tool call
             result = await self.tool_manager.execute_tool(function_name, arguments)
             return result
 
@@ -180,12 +180,12 @@ class UnifiedToolHandler:
         if not responses:
             return ActionResponse(action=Action.NONE, response="无响应")
 
-        # 如果有任何错误，返回第一个错误
+        # If any error occurred, return the first error
         for response in responses:
             if response.action == Action.ERROR:
                 return response
 
-        # 合并所有成功的响应
+        # Merge all successful responses
         contents = []
         responses_text = []
 
@@ -195,7 +195,7 @@ class UnifiedToolHandler:
             if response.response:
                 responses_text.append(response.response)
 
-        # 确定最终的动作类型
+        # Determine final action type
         final_action = Action.RESPONSE
         for response in responses:
             if response.action == Action.REQLLM:
@@ -223,7 +223,7 @@ class UnifiedToolHandler:
         try:
             await self.server_mcp_executor.cleanup()
 
-            # 清理MCP接入点连接
+            # Clean up MCP endpoint connection
             if (
                 hasattr(self.conn, "mcp_endpoint_client")
                 and self.conn.mcp_endpoint_client

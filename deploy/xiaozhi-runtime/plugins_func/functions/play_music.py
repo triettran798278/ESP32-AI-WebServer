@@ -40,22 +40,22 @@ def play_music(conn, song_name: str):
             f"播放音乐 {song_name}" if song_name != "random" else "随机播放音乐"
         )
 
-        # 检查事件循环状态
+        # Check event loop state
         if not conn.loop.is_running():
             conn.logger.bind(tag=TAG).error("事件循环未运行，无法提交任务")
             return ActionResponse(
                 action=Action.RESPONSE, result="系统繁忙", response="请稍后再试"
             )
 
-        # 提交异步任务
+        # Submit async task
         task = conn.loop.create_task(
-            handle_music_command(conn, music_intent)  # 封装异步逻辑
+            handle_music_command(conn, music_intent)  # Wrap async logic
         )
 
-        # 非阻塞回调处理
+        # Non-blocking completion callback
         def handle_done(f):
             try:
-                f.result()  # 可在此处理成功逻辑
+                f.result()  # Handle success logic here if needed
                 conn.logger.bind(tag=TAG).info("播放完成")
             except Exception as e:
                 conn.logger.bind(tag=TAG).error(f"播放失败: {e}")
@@ -101,13 +101,13 @@ def get_music_files(music_dir, music_ext):
     music_files = []
     music_file_names = []
     for file in music_dir.rglob("*"):
-        # 判断是否是文件
+        # Check if entry is a file
         if file.is_file():
-            # 获取文件扩展名
+            # Get file extension
             ext = file.suffix.lower()
-            # 判断扩展名是否在列表中
+            # Check if extension is in allowed list
             if ext in music_ext:
-                # 添加相对路径
+                # Append relative path
                 music_files.append(str(file.relative_to(music_dir)))
                 music_file_names.append(
                     os.path.splitext(str(file.relative_to(music_dir)))[0]
@@ -122,7 +122,7 @@ def initialize_music_handler(conn):
         if "play_music" in plugins_config:
             MUSIC_CACHE["music_config"] = plugins_config["play_music"]
             MUSIC_CACHE["music_dir"] = os.path.abspath(
-                MUSIC_CACHE["music_config"].get("music_dir", "./music")  # 默认路径修改
+                MUSIC_CACHE["music_config"].get("music_dir", "./music")  # Default path override
             )
             MUSIC_CACHE["music_ext"] = MUSIC_CACHE["music_config"].get(
                 "music_ext", (".mp3", ".wav", ".p3")
@@ -134,7 +134,7 @@ def initialize_music_handler(conn):
             MUSIC_CACHE["music_dir"] = os.path.abspath("./music")
             MUSIC_CACHE["music_ext"] = (".mp3", ".wav", ".p3")
             MUSIC_CACHE["refresh_time"] = 60
-        # 获取音乐文件列表
+        # Get music file list
         MUSIC_CACHE["music_files"], MUSIC_CACHE["music_file_names"] = get_music_files(
             MUSIC_CACHE["music_dir"], MUSIC_CACHE["music_ext"]
         )
@@ -150,10 +150,10 @@ async def handle_music_command(conn, text):
     clean_text = re.sub(r"[^\w\s]", "", text).strip()
     conn.logger.bind(tag=TAG).debug(f"检查是否是音乐命令: {clean_text}")
 
-    # 尝试匹配具体歌名
+    # Try matching specific song title
     if os.path.exists(MUSIC_CACHE["music_dir"]):
         if time.time() - MUSIC_CACHE["scan_time"] > MUSIC_CACHE["refresh_time"]:
-            # 刷新音乐文件列表
+            # Refresh music file list
             MUSIC_CACHE["music_files"], MUSIC_CACHE["music_file_names"] = (
                 get_music_files(MUSIC_CACHE["music_dir"], MUSIC_CACHE["music_ext"])
             )
@@ -166,14 +166,14 @@ async def handle_music_command(conn, text):
                 conn.logger.bind(tag=TAG).info(f"找到最匹配的歌曲: {best_match}")
                 await play_local_music(conn, specific_file=best_match)
                 return True
-    # 检查是否是通用播放音乐命令
+    # Check if this is a generic play-music command
     await play_local_music(conn)
     return True
 
 
 def _get_random_play_prompt(song_name):
     """生成随机播放引导语"""
-    # 移除文件扩展名
+    # Strip file extension
     clean_name = os.path.splitext(song_name)[0]
     prompts = [
         f"正在为您播放，《{clean_name}》",
@@ -184,7 +184,7 @@ def _get_random_play_prompt(song_name):
         f"接下来请欣赏，《{clean_name}》",
         f"此刻为您献上，《{clean_name}》",
     ]
-    # 直接使用random.choice，不设置seed
+    # Call random.choice directly without setting a seed
     return random.choice(prompts)
 
 
@@ -198,7 +198,7 @@ async def play_local_music(conn, specific_file=None):
             )
             return
 
-        # 确保路径正确性
+        # Ensure path validity
         if specific_file:
             selected_music = specific_file
             music_path = os.path.join(MUSIC_CACHE["music_dir"], specific_file)

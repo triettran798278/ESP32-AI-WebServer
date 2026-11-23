@@ -26,7 +26,7 @@ class ASRProvider(ASRProviderBase):
 
         self.client = AipSpeech(str(self.app_id), self.api_key, self.secret_key)
 
-        # 确保输出目录存在
+        # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
     async def speech_to_text(
@@ -39,26 +39,26 @@ class ASRProvider(ASRProviderBase):
 
         file_path = None
         try:
-            # 检查配置是否已设置
+            # Check if configuration is set
             if not self.app_id or not self.api_key or not self.secret_key:
                 logger.bind(tag=TAG).error("百度语音识别配置未设置，无法进行识别")
                 return None, file_path
 
-            # 将Opus音频数据解码为PCM
+            # Decode Opus audio data to PCM
             if audio_format == "pcm":
                 pcm_data = opus_data
             else:
                 pcm_data = self.decode_opus(opus_data)
             combined_pcm_data = b"".join(pcm_data)
 
-            # 判断是否保存为WAV文件
+            # Decide whether to save as WAV file
             if self.delete_audio_file:
                 pass
             else:
                 self.save_audio_to_file(pcm_data, session_id)
 
             start_time = time.time()
-            # 识别本地文件
+            # Recognize local audio data
             result = self.client.asr(
                 combined_pcm_data,
                 "pcm",

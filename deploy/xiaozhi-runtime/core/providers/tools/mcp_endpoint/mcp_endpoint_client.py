@@ -21,7 +21,7 @@ class MCPEndpointClient:
         self.next_id = 1
         self.lock = asyncio.Lock()
         self._cached_available_tools = None  # Cache for get_available_tools
-        self.websocket = None  # WebSocket连接
+        self.websocket = None  # WebSocket connection
 
     def has_tool(self, name: str) -> bool:
         return name in self.tools

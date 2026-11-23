@@ -75,7 +75,7 @@ class ToolManager:
     ) -> ActionResponse:
         """执行工具调用"""
         try:
-            # 查找工具类型
+            # Look up tool type
             tool_type = self.get_tool_type(tool_name)
             if not tool_type:
                 return ActionResponse(
@@ -83,7 +83,7 @@ class ToolManager:
                     response=f"工具 {tool_name} 不存在",
                 )
 
-            # 获取对应的执行器
+            # Get corresponding executor
             executor = self.executors.get(tool_type)
             if not executor:
                 return ActionResponse(
@@ -91,7 +91,7 @@ class ToolManager:
                     response=f"工具类型 {tool_type.value} 的执行器未注册",
                 )
 
-            # 执行工具
+            # Execute tool
             self.logger.info(f"执行工具: {tool_name}，参数: {arguments}")
             result = await executor.execute(self.conn, tool_name, arguments)
             self.logger.debug(f"工具执行结果: {result}")

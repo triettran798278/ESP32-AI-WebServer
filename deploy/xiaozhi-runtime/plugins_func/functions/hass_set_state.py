@@ -165,7 +165,7 @@ def handle_hass_set_state(conn, entity_id, state):
         data = {"entity_id": entity_id, arg: value}
     url = f"{base_url}/api/services/{domain}/{action}"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    response = requests.post(url, headers=headers, json=data, timeout=5)  # 设置5秒超时
+    response = requests.post(url, headers=headers, json=data, timeout=5)  # 5s timeout
     logger.bind(tag=TAG).info(
         f"设置状态:{description},url:{url},return_code:{response.status_code}"
     )

@@ -19,6 +19,6 @@ class BaseHandler:
         """处理OPTIONS请求，添加CORS头信息"""
         response = web.Response(body=b"", content_type="text/plain")
         self._add_cors_headers(response)
-        # 添加允许的方法
+        # Add allowed methods
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         return response

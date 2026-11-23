@@ -23,10 +23,10 @@ class ServerPluginExecutor(ToolExecutor):
             )
 
         try:
-            # 根据工具类型决定如何调用
+            # Determine how to invoke based on tool type
             if hasattr(func_item, "type"):
                 func_type = func_item.type
-                if func_type.code in [4, 5]:  # SYSTEM_CTL, IOT_CTL (需要conn参数)
+                if func_type.code in [4, 5]:  # SYSTEM_CTL, IOT_CTL (requires conn arg)
                     result = func_item.func(conn, **arguments)
                 elif func_type.code == 2:  # WAIT
                     result = func_item.func(**arguments)
@@ -35,7 +35,7 @@ class ServerPluginExecutor(ToolExecutor):
                 else:
                     result = func_item.func(**arguments)
             else:
-                # 默认不传conn参数
+                # Default: do not pass conn arg
                 result = func_item.func(**arguments)
 
             return result
@@ -50,28 +50,28 @@ class ServerPluginExecutor(ToolExecutor):
         """获取所有注册的服务端插件工具"""
         tools = {}
 
-        # 获取必要的函数
+        # Required functions
         necessary_functions = ["handle_exit_intent", "get_lunar"]
 
-        # 获取配置中的函数
+        # Configured functions
         config_functions = self.config["Intent"][
             self.config["selected_module"]["Intent"]
         ].get("functions", [])
 
-        # 转换为列表
+        # Convert to list
         if not isinstance(config_functions, list):
             try:
                 config_functions = list(config_functions)
             except TypeError:
                 config_functions = []
 
-        # 合并所有需要的函数
+        # Merge all required functions
         all_required_functions = list(set(necessary_functions + config_functions))
 
         for func_name in all_required_functions:
             func_item = all_function_registry.get(func_name)
             if func_item:
-                # 从函数注册中获取描述
+                # Get description from function registry
                 fun_description = (
                     self.config.get("plugins", {})
                     .get(func_name, {})

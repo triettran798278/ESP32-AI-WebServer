@@ -47,20 +47,20 @@ CHANNEL_MAP = {
 }
 
 
-# 默认新闻来源字典，当配置中没有指定时使用
+# Default news sources used when not specified in config
 DEFAULT_NEWS_SOURCES = "澎湃新闻;百度热搜;财联社"
 
 
 def get_news_sources_from_config(conn):
     """从配置中获取新闻源字符串"""
     try:
-        # 尝试从插件配置中获取新闻源
+        # Try getting news sources from plugin config
         if (
             conn.config.get("plugins")
             and conn.config["plugins"].get("get_news_from_newsnow")
             and conn.config["plugins"]["get_news_from_newsnow"].get("news_sources")
         ):
-            # 获取配置的新闻源字符串
+            # Get configured news sources string
             news_sources_config = conn.config["plugins"]["get_news_from_newsnow"][
                 "news_sources"
             ]
@@ -80,7 +80,7 @@ def get_news_sources_from_config(conn):
         return DEFAULT_NEWS_SOURCES
 
 
-# 从CHANNEL_MAP获取所有可用的新闻源名称
+# Get all available news source names from CHANNEL_MAP
 available_sources = list(CHANNEL_MAP.keys())
 example_sources_str = "、".join(available_sources)
 
@@ -149,14 +149,14 @@ def fetch_news_detail(url):
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
 
-        # 使用MarkItDown清理HTML内容
+        # Clean HTML content using MarkItDown
         md = MarkItDown(enable_plugins=False)
         result = md.convert(response)
 
-        # 获取清理后的文本内容
+        # Get cleaned text content
         clean_text = result.text_content
 
-        # 如果清理后的内容为空，返回提示信息
+        # Return notice if cleaned content is empty
         if not clean_text or len(clean_text.strip()) == 0:
             logger.bind(tag=TAG).warning(f"清理后的新闻内容为空: {url}")
             return "无法解析新闻详情内容，可能是网站结构特殊或内容受限。"
@@ -177,10 +177,10 @@ def get_news_from_newsnow(
 ):
     """获取新闻并随机选择一条进行播报，或获取上一条新闻的详细内容"""
     try:
-        # 获取当前配置的新闻源
+        # Get currently configured news sources
         news_sources = get_news_sources_from_config(conn)
 
-        # 如果detail为True，获取上一条新闻的详细内容
+        # If detail is True, fetch details of the previous news item
         detail = str(detail).lower() == "true"
         if detail:
             if (
@@ -208,7 +208,7 @@ def get_news_from_newsnow(
                 f"获取新闻详情: {title}, 来源: {source_name}, URL={url}"
             )
 
-            # 获取新闻详情
+            # Fetch news details
             detail_content = fetch_news_detail(url)
 
             if not detail_content or detail_content == "无法获取详细内容":
@@ -218,11 +218,11 @@ def get_news_from_newsnow(
                     None,
                 )
 
-            # 构建详情报告
+            # Build detail report
             detail_report = (
                 f"根据下列数据，用{lang}回应用户的新闻详情查询请求：\n\n"
                 f"新闻标题: {title}\n"
-                # f"新闻来源: {source_name}\n"
+                # f"News source: {source_name}\n"
                 f"详细内容: {detail_content}\n\n"
                 f"(请对上述新闻内容进行总结，提取关键信息，以自然、流畅的方式向用户播报，"
                 f"不要提及这是总结，就像是在讲述一个完整的新闻故事)"
@@ -230,19 +230,19 @@ def get_news_from_newsnow(
 
             return ActionResponse(Action.REQLLM, detail_report, None)
 
-        # 否则，获取新闻列表并随机选择一条
-        # 将中文名称转换为英文ID
+        # Otherwise, fetch news list and pick one randomly
+        # Convert Chinese name to English ID
         english_source_id = None
 
-        # 检查输入的中文名称是否在配置的新闻源中
+        # Check if the input Chinese name is in configured news sources
         news_sources_list = [
             name.strip() for name in news_sources.split(";") if name.strip()
         ]
         if source in news_sources_list:
-            # 如果输入的中文名称在配置的新闻源中，在 CHANNEL_MAP 中查找对应的英文ID
+            # Look up corresponding English ID in CHANNEL_MAP
             english_source_id = CHANNEL_MAP.get(source)
 
-        # 如果找不到对应的英文ID，使用默认源
+        # Fallback to default source if no English ID is found
         if not english_source_id:
             logger.bind(tag=TAG).warning(f"无效的新闻源: {source}，使用默认源澎湃新闻")
             english_source_id = "thepaper"
@@ -250,7 +250,7 @@ def get_news_from_newsnow(
 
         logger.bind(tag=TAG).info(f"获取新闻: 新闻源={source}({english_source_id})")
 
-        # 获取新闻列表
+        # Fetch news list
         news_items = fetch_news_from_api(conn, english_source_id)
 
         if not news_items:
@@ -260,10 +260,10 @@ def get_news_from_newsnow(
                 None,
             )
 
-        # 随机选择一条新闻
+        # Pick a random news item
         selected_news = random.choice(news_items)
 
-        # 保存当前新闻链接到连接对象，以便后续查询详情
+        # Save current news link on connection for follow-up detail queries
         if not hasattr(conn, "last_newsnow_link"):
             conn.last_newsnow_link = {}
         conn.last_newsnow_link = {
@@ -272,11 +272,11 @@ def get_news_from_newsnow(
             "source_id": english_source_id,
         }
 
-        # 构建新闻报告
+        # Build news report
         news_report = (
             f"根据下列数据，用{lang}回应用户的新闻查询请求：\n\n"
             f"新闻标题: {selected_news['title']}\n"
-            # f"新闻来源: {source}\n"
+            # f"News source: {source}\n"
             f"(请以自然、流畅的方式向用户播报这条新闻标题，"
             f"提示用户可以要求获取详细内容，此时会获取新闻的详细内容。)"
         )

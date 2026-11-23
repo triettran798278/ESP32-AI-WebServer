@@ -19,10 +19,10 @@ class VoiceprintProvider:
         self.original_url = config.get("url", "")
         self.speakers = config.get("speakers", [])
         self.speaker_map = self._parse_speakers()
-        # 声纹识别相似度阈值，默认0.4
+        # Voiceprint similarity threshold, default 0.4
         self.similarity_threshold = float(config.get("similarity_threshold", 0.4))
         
-        # 解析API地址和密钥
+        # Parse API URL and key
         self.api_url = None
         self.api_key = None
         self.speaker_ids = []
@@ -31,11 +31,11 @@ class VoiceprintProvider:
             logger.bind(tag=TAG).warning("声纹识别URL未配置，声纹识别将被禁用")
             self.enabled = False
         else:
-            # 解析URL和key
+            # Parse URL and key
             parsed_url = urlparse(self.original_url)
             base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
             
-            # 从查询参数中提取key
+            # Extract key from query parameters
             query_params = parse_qs(parsed_url.query)
             self.api_key = query_params.get('key', [''])[0]
             
@@ -43,10 +43,10 @@ class VoiceprintProvider:
                 logger.bind(tag=TAG).error("URL中未找到key参数，声纹识别将被禁用")
                 self.enabled = False
             else:
-                # 构造identify接口地址
+                # Build identify endpoint URL
                 self.api_url = f"{base_url}/voiceprint/identify"
                 
-                # 提取speaker_ids
+                # Extract speaker_ids
                 for speaker_str in self.speakers:
                     try:
                         parts = speaker_str.split(",", 2)
@@ -56,12 +56,12 @@ class VoiceprintProvider:
                     except Exception:
                         continue
                 
-                # 检查是否有有效的说话人配置
+                # Check if any valid speakers are configured
                 if not self.speaker_ids:
                     logger.bind(tag=TAG).warning("未配置有效的说话人，声纹识别将被禁用")
                     self.enabled = False
                 else:
-                    # 进行健康检查，验证服务器是否可用
+                    # Run health check to verify server availability
                     if self._check_server_health():
                         self.enabled = True
                         logger.bind(tag=TAG).info(f"声纹识别已启用: API={self.api_url}, 说话人={len(self.speaker_ids)}个, 相似度阈值={self.similarity_threshold}")
@@ -92,21 +92,21 @@ class VoiceprintProvider:
     
         cache_key = f"{self.api_url}:{self.api_key}"
         
-        # 检查缓存
+        # Check cache
         cached_result = cache_manager.get(CacheType.VOICEPRINT_HEALTH, cache_key)
         if cached_result is not None:
             logger.bind(tag=TAG).debug(f"使用缓存的健康状态: {cached_result}")
             return cached_result
         
-        # 缓存过期或不存在
+        # Cache expired or missing
         logger.bind(tag=TAG).info("执行声纹服务器健康检查")
         
         try:
-            # 健康检查URL
+            # Health check URL
             parsed_url = urlparse(self.api_url)
             health_url = f"{parsed_url.scheme}://{parsed_url.netloc}/voiceprint/health?key={self.api_key}"
             
-            # 发送健康检查请求
+            # Send health check request
             response = requests.get(health_url, timeout=3)
             
             if response.status_code == 200:
@@ -131,7 +131,7 @@ class VoiceprintProvider:
             logger.bind(tag=TAG).warning(f"声纹识别服务器健康检查异常: {e}")
             is_healthy = False
         
-        # 使用全局缓存管理器缓存结果
+        # Cache result using global cache manager
         cache_manager.set(CacheType.VOICEPRINT_HEALTH, cache_key, is_healthy)
         logger.bind(tag=TAG).info(f"健康检查结果已缓存: {is_healthy}")
         
@@ -146,20 +146,20 @@ class VoiceprintProvider:
         try:
             api_start_time = time.monotonic()
             
-            # 准备请求头
+            # Prepare request headers
             headers = {
                 'Authorization': f'Bearer {self.api_key}',
                 'Accept': 'application/json'
             }
             
-            # 准备multipart/form-data数据
+            # Prepare multipart/form-data payload
             data = aiohttp.FormData()
             data.add_field('speaker_ids', ','.join(self.speaker_ids))
             data.add_field('file', audio_data, filename='audio.wav', content_type='audio/wav')
             
             timeout = aiohttp.ClientTimeout(total=10)
             
-            # 网络请求
+            # Send HTTP request
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(self.api_url, headers=headers, data=data) as response:
                     
@@ -171,7 +171,7 @@ class VoiceprintProvider:
                         
                         logger.bind(tag=TAG).info(f"声纹识别耗时: {total_elapsed_time:.3f}s")
                         
-                        # 相似度阈值检查
+                        # Check similarity threshold
                         if score < self.similarity_threshold:
                             logger.bind(tag=TAG).warning(f"声纹识别相似度{score:.3f}低于阈值{self.similarity_threshold}")
                             return "未知说话人"

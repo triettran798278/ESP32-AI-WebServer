@@ -27,7 +27,7 @@ handle_exit_intent_function_desc = {
     "handle_exit_intent", handle_exit_intent_function_desc, ToolType.SYSTEM_CTL
 )
 def handle_exit_intent(conn, say_goodbye: str | None = None):
-    # 处理退出意图
+    # Handle exit intent
     try:
         if say_goodbye is None:
             say_goodbye = "再见，祝您生活愉快！"

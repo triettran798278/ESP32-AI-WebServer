@@ -78,7 +78,7 @@ short_term_memory_prompt = """
 
 def extract_json_data(json_code):
     start = json_code.find("```json")
-    # 从start开始找到下一个```结束
+    # Find the next closing ``` starting from start
     end = json_code.find("```", start + 1)
     # print("start:", start, "end:", end)
     if start == -1 or end == -1:
@@ -111,7 +111,7 @@ class MemoryProvider(MemoryProviderBase):
         self.load_memory(summary_memory)
 
     def load_memory(self, summary_memory):
-        # api获取到总结记忆后直接返回
+        # Return immediately after receiving summary memory from API
         if summary_memory or not self.save_to_file:
             self.short_memory = summary_memory
             return
@@ -133,7 +133,7 @@ class MemoryProvider(MemoryProviderBase):
             yaml.dump(all_memory, f, allow_unicode=True)
 
     async def save_memory(self, msgs, session_id=None):
-        # 打印使用的模型信息
+        # Log the model info being used
         model_info = getattr(self.llm, "model_name", str(self.llm.__class__.__name__))
         logger.bind(tag=TAG).debug(f"使用记忆保存模型: {model_info}")
         api_key = getattr(self.llm, "api_key", None)
@@ -157,7 +157,7 @@ class MemoryProvider(MemoryProviderBase):
             msgStr += "历史记忆：\n"
             msgStr += self.short_memory
 
-        # 当前时间
+        # Current time
         time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         msgStr += f"当前时间：{time_str}"
 
@@ -170,13 +170,13 @@ class MemoryProvider(MemoryProviderBase):
             )
             json_str = extract_json_data(result)
             try:
-                json.loads(json_str)  # 检查json格式是否正确
+                json.loads(json_str)  # Validate JSON format
                 self.short_memory = json_str
                 self.save_memory_to_file()
             except Exception as e:
                 print("Error:", e)
         else:
-            # 当save_to_file为False时，调用Java端的聊天记录总结接口
+            # When save_to_file is False, call the Java-side chat summary API
             summary_id = session_id if session_id else self.role_id
             await generate_and_save_chat_summary(summary_id)
         logger.bind(tag=TAG).info(

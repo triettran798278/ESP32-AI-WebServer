@@ -35,7 +35,7 @@ hass_play_music_function_desc = {
 )
 def hass_play_music(conn, entity_id="", media_content_id="random"):
     try:
-        # 执行音乐播放命令
+        # Execute music playback command
         future = asyncio.run_coroutine_threadsafe(
             handle_hass_play_music(conn, entity_id, media_content_id), conn.loop
         )

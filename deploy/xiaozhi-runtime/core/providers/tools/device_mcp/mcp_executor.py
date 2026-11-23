@@ -29,12 +29,12 @@ class DeviceMCPExecutor(ToolExecutor):
             )
 
         try:
-            # 转换参数为JSON字符串
+            # Convert arguments to JSON string
             import json
 
             args_str = json.dumps(arguments) if arguments else "{}"
 
-            # 调用设备端MCP工具
+            # Call device-side MCP tool
             result = await call_mcp_tool(conn, conn.mcp_client, tool_name, args_str)
 
             resultJson = None
@@ -44,7 +44,7 @@ class DeviceMCPExecutor(ToolExecutor):
                 except Exception as e:
                     pass
 
-            # 视觉大模型不经过二次LLM处理
+            # Vision LLM results bypass secondary LLM processing
             if (
                 resultJson is not None
                 and isinstance(resultJson, dict)

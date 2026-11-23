@@ -32,7 +32,7 @@ class ServerMCPExecutor(ToolExecutor):
             )
 
         try:
-            # 移除mcp_前缀（如果有）
+            # Strip mcp_ prefix if present
             actual_tool_name = tool_name
             if tool_name.startswith("mcp_"):
                 actual_tool_name = tool_name[4:]
@@ -76,7 +76,7 @@ class ServerMCPExecutor(ToolExecutor):
         if not self._initialized or not self.mcp_manager:
             return False
 
-        # 移除mcp_前缀（如果有）
+        # Strip mcp_ prefix if present
         actual_tool_name = tool_name
         if tool_name.startswith("mcp_"):
             actual_tool_name = tool_name[4:]

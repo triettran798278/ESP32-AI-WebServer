@@ -2,8 +2,8 @@ services:
   platform-bridge:
     image: iot-platform-bridge:local
     build:
-      context: ./thingsboard-mcp
-      dockerfile: ../platform-bridge/runtime.Dockerfile
+      context: ./platform-bridge
+      dockerfile: runtime.Dockerfile
     container_name: platform-bridge
     restart: unless-stopped
     command: ["uvicorn", "platform-bridge.app:app", "--host", "0.0.0.0", "--port", "8005"]
@@ -12,7 +12,7 @@ services:
     volumes:
       - ./platform-bridge:/app/platform-bridge
       - ./thingsboard-mcp:/app/thingsboard-mcp:ro
-      - ./deploy/platform-data:/app/data
+      - platform-data:/app/data
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
@@ -61,3 +61,7 @@ networks:
   default:
     name: iot_assignment_default
     external: true
+
+volumes:
+  platform-data:
+    name: ${PLATFORM_DATA_VOLUME:-iot_platform_data}

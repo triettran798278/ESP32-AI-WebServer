@@ -51,4 +51,4 @@ class TTSProvider(TTSProviderBase):
         else:
             error_msg = f"Custom TTS请求失败: {resp.status_code} - {resp.text}"
             logger.bind(tag=TAG).error(error_msg)
-            raise Exception(error_msg)  # 抛出异常，让调用方捕获
+            raise Exception(error_msg)  # Raise exception for caller to catch

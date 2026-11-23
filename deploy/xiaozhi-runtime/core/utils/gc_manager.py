@@ -58,18 +58,18 @@ class GlobalGCManager:
         """GC循环任务"""
         try:
             while not self._stop_event.is_set():
-                # 等待指定间隔
+                # Wait for the configured interval
                 try:
                     await asyncio.wait_for(
                         self._stop_event.wait(), timeout=self.interval_seconds
                     )
-                    # 如果stop_event被设置，退出循环
+                    # Exit loop if stop_event is set
                     break
                 except asyncio.TimeoutError:
-                    # 超时表示到了执行GC的时间
+                    # Timeout means it is time to run GC
                     pass
 
-                # 执行GC
+                # Run GC
                 await self._run_gc()
 
         except asyncio.CancelledError:
@@ -83,7 +83,7 @@ class GlobalGCManager:
     async def _run_gc(self):
         """执行垃圾回收"""
         try:
-            # 在线程池中执行GC，避免阻塞事件循环
+            # Run GC in thread pool to avoid blocking the event loop
             loop = asyncio.get_running_loop()
 
             def do_gc():
@@ -102,7 +102,7 @@ class GlobalGCManager:
             logger.bind(tag=TAG).error(f"执行GC时出错: {e}")
 
 
-# 全局单例
+# Global singleton
 _gc_manager_instance = None
 
 

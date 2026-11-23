@@ -11,10 +11,10 @@ from dataclasses import dataclass
 class CacheStrategy(Enum):
     """缓存策略枚举"""
 
-    TTL = "ttl"  # 基于时间过期
-    LRU = "lru"  # 最近最少使用
-    FIXED_SIZE = "fixed_size"  # 固定大小
-    TTL_LRU = "ttl_lru"  # TTL + LRU混合策略
+    TTL = "ttl"  # Time-based expiration
+    LRU = "lru"  # Least recently used
+    FIXED_SIZE = "fixed_size"  # Fixed size
+    TTL_LRU = "ttl_lru"  # Hybrid TTL + LRU strategy
 
 
 @dataclass
@@ -23,7 +23,7 @@ class CacheEntry:
 
     value: Any
     timestamp: float
-    ttl: Optional[float] = None  # 生存时间（秒）
+    ttl: Optional[float] = None  # Time to live (seconds)
     access_count: int = 0
     last_access: float = None
 

@@ -41,10 +41,10 @@ class AccessToken:
             "Timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "Version": "2019-02-28",
         }
-        # 构造规范化的请求字符串
+        # Build canonicalized query string
         query_string = AccessToken._encode_dict(parameters)
-        # print('规范化的请求字符串: %s' % query_string)
-        # 构造待签名字符串
+        # print('Canonicalized query string: %s' % query_string)
+        # Build string to sign
         string_to_sign = (
             "GET"
             + "&"
@@ -52,25 +52,25 @@ class AccessToken:
             + "&"
             + AccessToken._encode_text(query_string)
         )
-        # print('待签名的字符串: %s' % string_to_sign)
-        # 计算签名
+        # print('String to sign: %s' % string_to_sign)
+        # Compute signature
         secreted_string = hmac.new(
             bytes(access_key_secret + "&", encoding="utf-8"),
             bytes(string_to_sign, encoding="utf-8"),
             hashlib.sha1,
         ).digest()
         signature = base64.b64encode(secreted_string)
-        # print('签名: %s' % signature)
-        # 进行URL编码
+        # print('Signature: %s' % signature)
+        # URL-encode signature
         signature = AccessToken._encode_text(signature)
-        # print('URL编码后的签名: %s' % signature)
-        # 调用服务
+        # print('URL-encoded signature: %s' % signature)
+        # Call service
         full_url = "http://nls-meta.cn-shanghai.aliyuncs.com/?Signature=%s&%s" % (
             signature,
             query_string,
         )
         # print('url: %s' % full_url)
-        # 提交HTTP GET请求
+        # Submit HTTP GET request
         response = requests.get(full_url)
         if response.ok:
             root_obj = response.json()
@@ -88,7 +88,7 @@ class TTSProvider(TTSProviderBase):
     def __init__(self, config, delete_audio_file):
         super().__init__(config, delete_audio_file)
 
-        # 新增空值判断逻辑
+        # Added null check logic
         self.access_key_id = config.get("access_key_id")
         self.access_key_secret = config.get("access_key_secret")
 
@@ -117,10 +117,10 @@ class TTSProvider(TTSProviderBase):
         self.header = {"Content-Type": "application/json"}
 
         if self.access_key_id and self.access_key_secret:
-            # 使用密钥对生成临时token
+            # Generate temporary token using key pair
             self._refresh_token()
         else:
-            # 直接使用预生成的长期token
+            # Use pre-generated long-lived token directly
             self.token = config.get("token")
             self.expire_time = None
 
@@ -134,7 +134,7 @@ class TTSProvider(TTSProviderBase):
                 raise ValueError("无法获取有效的Token过期时间")
 
             try:
-                # 统一转换为字符串处理
+                # Convert uniformly to string for processing
                 expire_str = str(expire_time_str).strip()
 
                 if expire_str.isdigit():
@@ -154,13 +154,13 @@ class TTSProvider(TTSProviderBase):
     def _is_token_expired(self):
         """检查Token是否过期"""
         if not self.expire_time:
-            return False  # 长期Token不过期
-        # 新增调试日志
+            return False  # Long-lived token does not expire
+        # Debug log
         # current_time = time.time()
         # remaining = self.expire_time - current_time
-        # print(f"Token过期检查: 当前时间 {datetime.fromtimestamp(current_time)} | "
-        #              f"过期时间 {datetime.fromtimestamp(self.expire_time)} | "
-        #              f"剩余 {remaining:.2f}秒")
+        # print(f"Token expiry check: current {datetime.fromtimestamp(current_time)} | "
+        #              f"expires {datetime.fromtimestamp(self.expire_time)} | "
+        #              f"remaining {remaining:.2f}s")
         return time.time() > self.expire_time
 
     async def text_to_speak(self, text, output_file):
@@ -184,12 +184,12 @@ class TTSProvider(TTSProviderBase):
             resp = requests.post(
                 self.api_url, json.dumps(request_json), headers=self.header
             )
-            if resp.status_code == 401:  # Token过期特殊处理
+            if resp.status_code == 401:  # Handle expired token
                 self._refresh_token()
                 resp = requests.post(
                     self.api_url, json.dumps(request_json), headers=self.header
                 )
-            # 检查返回请求数据的mime类型是否是audio/***，是则保存到指定路径下；返回的是binary格式的
+            # If response MIME type is audio/***, save binary data to the specified path
             if resp.headers["Content-Type"].startswith("audio/"):
                 if output_file:
                     with open(output_file, "wb") as f:

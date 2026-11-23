@@ -29,12 +29,12 @@ class MCPEndpointExecutor(ToolExecutor):
             )
 
         try:
-            # 转换参数为JSON字符串
+            # Convert arguments to JSON string
             import json
 
             args_str = json.dumps(arguments) if arguments else "{}"
 
-            # 调用MCP接入点工具
+            # Call MCP endpoint tool
             result = await call_mcp_endpoint_tool(
                 conn.mcp_endpoint_client, tool_name, args_str
             )
@@ -46,7 +46,7 @@ class MCPEndpointExecutor(ToolExecutor):
                 except Exception as e:
                     pass
 
-            # 视觉大模型不经过二次LLM处理
+            # Vision LLM results bypass secondary LLM processing
             if (
                 resultJson is not None
                 and isinstance(resultJson, dict)

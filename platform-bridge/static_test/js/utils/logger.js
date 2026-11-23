@@ -1,22 +1,22 @@
 import { getLogContainer } from '../ui/dom-helper.js'
 
 const logContainer = getLogContainer();
-// 日志记录函数
+// Log helper function
 export function log(message, type = 'info') {
-    // 将消息按换行符分割成多行
+    // Split message by newlines into multiple lines
     const lines = message.split('\n');
     const now = new Date();
     // const timestamp = `[${now.toLocaleTimeString()}] `;
     const timestamp = `[${now.toLocaleTimeString()}.${now.getMilliseconds().toString().padStart(3, '0')}] `;
-    // 为每一行创建日志条目
+    // Create a log entry for each line
     lines.forEach((line, index) => {
         const logEntry = document.createElement('div');
         logEntry.className = `log-entry log-${type}`;
-        // 如果是第一条日志，显示时间戳
+        // Show timestamp on the first line
         const prefix = index === 0 ? timestamp : ' '.repeat(timestamp.length);
         logEntry.textContent = `${prefix}${line}`;
         // logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-        // logEntry.style 保留起始的空格
+        // Preserve leading whitespace in logEntry.style
         logEntry.style.whiteSpace = 'pre';
         if (type === 'error') {
             logEntry.style.color = 'red';

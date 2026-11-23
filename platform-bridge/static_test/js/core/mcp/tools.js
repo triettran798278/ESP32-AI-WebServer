@@ -1,28 +1,28 @@
 import { log } from '../../utils/logger.js';
 
 // ==========================================
-// MCP 工具管理逻辑
+// MCP tool management logic
 // ==========================================
 
-// 全局变量
+// Global variables
 let mcpTools = [];
 let mcpEditingIndex = null;
 let mcpProperties = [];
-let websocket = null; // 将从外部设置
+let websocket = null; // Set externally
 
 /**
- * 设置 WebSocket 实例
- * @param {WebSocket} ws - WebSocket 连接实例
+ * Set WebSocket instance
+ * @param {WebSocket} ws - WebSocket connection instance
  */
 export function setWebSocket(ws) {
     websocket = ws;
 }
 
 /**
- * 初始化 MCP 工具
+ * Initialize MCP tools
  */
 export async function initMcpTools() {
-    // 加载默认工具数据
+    // Load default tool data
     const defaultMcpTools = await fetch("js/config/default-mcp-tools.json").then(res => res.json());
 
     const savedTools = localStorage.getItem('mcpTools');
@@ -42,7 +42,7 @@ export async function initMcpTools() {
 }
 
 /**
- * 渲染工具列表
+ * Render tool list
  */
 function renderMcpTools() {
     const container = document.getElementById('mcpToolsContainer');
@@ -92,7 +92,7 @@ function renderMcpTools() {
 }
 
 /**
- * 渲染参数列表
+ * Render parameter list
  */
 function renderMcpProperties() {
     const container = document.getElementById('mcpPropertiesContainer');
@@ -158,7 +158,7 @@ function renderMcpProperties() {
 }
 
 /**
- * 添加参数
+ * Add parameter
  */
 function addMcpProperty() {
     mcpProperties.push({
@@ -171,7 +171,7 @@ function addMcpProperty() {
 }
 
 /**
- * 更新参数
+ * Update parameter
  */
 function updateMcpProperty(index, field, value) {
     if (field === 'name') {
@@ -193,7 +193,7 @@ function updateMcpProperty(index, field, value) {
 }
 
 /**
- * 删除参数
+ * Delete parameter
  */
 function deleteMcpProperty(index) {
     mcpProperties.splice(index, 1);
@@ -201,7 +201,7 @@ function deleteMcpProperty(index) {
 }
 
 /**
- * 设置事件监听
+ * Set up event listeners
  */
 function setupMcpEventListeners() {
     const toggleBtn = document.getElementById('toggleMcpTools');
@@ -232,7 +232,7 @@ function setupMcpEventListeners() {
 }
 
 /**
- * 打开模态框
+ * Open modal
  */
 function openMcpModal(index = null) {
     const isConnected = websocket && websocket.readyState === WebSocket.OPEN;
@@ -278,7 +278,7 @@ function openMcpModal(index = null) {
 }
 
 /**
- * 关闭模态框
+ * Close modal
  */
 function closeMcpModal() {
     document.getElementById('mcpToolModal').style.display = 'none';
@@ -289,7 +289,7 @@ function closeMcpModal() {
 }
 
 /**
- * 处理表单提交
+ * Handle form submission
  */
 function handleMcpSubmit(e) {
     e.preventDefault();
@@ -300,7 +300,7 @@ function handleMcpSubmit(e) {
     const description = document.getElementById('mcpToolDescription').value.trim();
     const mockResponseText = document.getElementById('mcpMockResponse').value.trim();
 
-    // 检查名称重复
+    // Check for duplicate name
     const isDuplicate = mcpTools.some((tool, index) =>
         tool.name === name && index !== mcpEditingIndex
     );
@@ -310,7 +310,7 @@ function handleMcpSubmit(e) {
         return;
     }
 
-    // 解析模拟返回结果
+    // Parse mock response
     let mockResponse = null;
     if (mockResponseText) {
         try {
@@ -321,7 +321,7 @@ function handleMcpSubmit(e) {
         }
     }
 
-    // 构建 inputSchema
+    // Build inputSchema
     const inputSchema = {
         type: "object",
         properties: {},
@@ -371,7 +371,7 @@ function handleMcpSubmit(e) {
 }
 
 /**
- * 显示错误
+ * Show error
  */
 function showMcpError(message) {
     const errorContainer = document.getElementById('mcpErrorContainer');
@@ -379,14 +379,14 @@ function showMcpError(message) {
 }
 
 /**
- * 编辑工具
+ * Edit tool
  */
 function editMcpTool(index) {
     openMcpModal(index);
 }
 
 /**
- * 删除工具
+ * Delete tool
  */
 function deleteMcpTool(index) {
     const isConnected = websocket && websocket.readyState === WebSocket.OPEN;
@@ -404,14 +404,14 @@ function deleteMcpTool(index) {
 }
 
 /**
- * 保存工具
+ * Save tools
  */
 function saveMcpTools() {
     localStorage.setItem('mcpTools', JSON.stringify(mcpTools));
 }
 
 /**
- * 获取工具列表
+ * Get tool list
  */
 export function getMcpTools() {
     return mcpTools.map(tool => ({
@@ -422,7 +422,7 @@ export function getMcpTools() {
 }
 
 /**
- * 执行工具调用
+ * Execute tool call
  */
 export function executeMcpTool(toolName, toolArgs) {
     const tool = mcpTools.find(t => t.name === toolName);
@@ -435,12 +435,12 @@ export function executeMcpTool(toolName, toolArgs) {
         };
     }
 
-    // 如果有模拟返回结果，使用它
+    // Use mock response if available
     if (tool.mockResponse) {
-        // 替换模板变量
+        // Replace template variables
         let responseStr = JSON.stringify(tool.mockResponse);
 
-        // 替换 ${paramName} 格式的变量
+        // Replace ${paramName} variables
         if (toolArgs) {
             Object.keys(toolArgs).forEach(key => {
                 const regex = new RegExp(`\\$\\{${key}\\}`, 'g');
@@ -458,7 +458,7 @@ export function executeMcpTool(toolName, toolArgs) {
         }
     }
 
-    // 没有模拟返回结果，返回默认成功消息
+    // No mock response; return default success message
     log(`工具 ${toolName} 执行成功，返回默认结果`, 'success');
     return {
         success: true,
@@ -468,7 +468,7 @@ export function executeMcpTool(toolName, toolArgs) {
     };
 }
 
-// 暴露全局方法供 HTML 内联事件调用
+// Expose global methods for HTML inline event handlers
 window.mcpModule = {
     updateMcpProperty,
     deleteMcpProperty,

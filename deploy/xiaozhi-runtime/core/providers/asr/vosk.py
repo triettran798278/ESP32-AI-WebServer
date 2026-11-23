@@ -18,12 +18,12 @@ class ASRProvider(ASRProviderBase):
         self.output_dir = config.get("output_dir", "tmp/")
         self.delete_audio_file = delete_audio_file
         
-        # 初始化VOSK模型
+        # Initialize VOSK model
         self.model = None
         self.recognizer = None
         self._load_model()
         
-        # 确保输出目录存在
+        # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
     def _load_model(self):
@@ -35,7 +35,7 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).info(f"正在加载VOSK模型: {self.model_path}")
             self.model = vosk.Model(self.model_path)
 
-            # 初始化VOSK识别器（采样率必须为16kHz）
+            # Initialize VOSK recognizer (sample rate must be 16kHz)
             self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
 
             logger.bind(tag=TAG).info("VOSK模型加载成功")
@@ -49,12 +49,12 @@ class ASRProvider(ASRProviderBase):
         """将语音数据转换为文本"""
         file_path = None
         try:
-            # 检查模型是否加载成功
+            # Check if model loaded successfully
             if not self.model:
                 logger.bind(tag=TAG).error("VOSK模型未加载，无法进行识别")
                 return "", None
 
-            # 解码音频（如果原始格式是Opus）
+            # Decode audio (if original format is Opus)
             if audio_format == "pcm":
                 pcm_data = audio_data
             else:
@@ -64,20 +64,20 @@ class ASRProvider(ASRProviderBase):
                 logger.bind(tag=TAG).warning("解码后的PCM数据为空，无法进行识别")
                 return "", None
                 
-            # 合并PCM数据
+            # Merge PCM data
             combined_pcm_data = b"".join(pcm_data)
             if len(combined_pcm_data) == 0:
                 logger.bind(tag=TAG).warning("合并后的PCM数据为空")
                 return "", None
 
-            # 判断是否保存为WAV文件
+            # Decide whether to save as WAV file
             if not self.delete_audio_file:
                 file_path = self.save_audio_to_file(pcm_data, session_id)
 
             start_time = time.time()
             
             
-            # 进行识别（VOSK推荐每次送入2000字节的数据）
+            # Run recognition (VOSK recommends feeding 2000 bytes at a time)
             chunk_size = 2000
             text_result = ""
             
@@ -89,7 +89,7 @@ class ASRProvider(ASRProviderBase):
                     if text:
                         text_result += text + " "
             
-            # 获取最终结果
+            # Get final result
             final_result = json.loads(self.recognizer.FinalResult())
             final_text = final_result.get('text', '')
             if final_text:
@@ -105,7 +105,7 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).error(f"VOSK语音识别失败: {e}")
             return "", None
         finally:
-            # 文件清理逻辑
+            # File cleanup logic
             if self.delete_audio_file and file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)

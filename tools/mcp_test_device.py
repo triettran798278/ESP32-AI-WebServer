@@ -19,6 +19,37 @@ RPC_CONTRACT = {
     },
 }
 
+ROOM_STATES = {
+    'LivingRoom': {'temperature': 24.5, 'humidity': 56, 'lightOn': False},
+    'BedRoom': {'temperature': 25.2, 'humidity': 60, 'fanOn': False},
+    'Kitchen': {'temperature': 27.0, 'gasDetected': False, 'smokeDetected': False},
+}
+ROOM_ACTUATORS = {
+    'LivingRoom': ('setLight', 'lightOn'),
+    'BedRoom': ('setFan', 'fanOn'),
+}
+
+
+def update_room_sample(profile, state, elapsed):
+    if profile == 'Kitchen':
+        phase = int(elapsed // 30) % 4
+        state['gasDetected'] = phase == 1
+        state['smokeDetected'] = phase == 2
+
+
+def room_reply(profile, method, params, state):
+    actuator, key = ROOM_ACTUATORS.get(profile, (None, None))
+    if method == 'getState':
+        if params != {}:
+            return {'ok': False, 'error': 'INVALID_PARAMS'}
+    elif actuator is not None and method == actuator:
+        if not isinstance(params, dict) or set(params) != {'state'} or type(params['state']) is not bool:
+            return {'ok': False, 'error': 'INVALID_PARAMS'}
+        state[key] = params['state']
+    else:
+        return {'ok': False, 'error': 'UNKNOWN_METHOD'}
+    return {'ok': True, 'state': state.copy()}
+
 
 def reply(method, params, state):
     if method in ('getState', 'togglePower') and params != {}:
@@ -42,11 +73,15 @@ def main():
     host = (os.environ.get('TB_HOST') or os.environ.get('THINGSBOARD_HOST') or '').rstrip('/')
     if not host:
         raise SystemExit('Set TB_HOST or THINGSBOARD_HOST')
+    profile = os.environ.get('TB_SIM_PROFILE')
+    if profile is not None and profile not in ROOM_STATES:
+        raise SystemExit('TB_SIM_PROFILE must be LivingRoom, BedRoom or Kitchen')
     with open(os.environ['TB_DEVICE_TOKEN_FILE'], encoding='utf-8') as token_file:
         base = f"{host}/api/v1/{token_file.read().strip()}"
-    state = {'power': False}
+    state = ROOM_STATES[profile].copy() if profile else {'power': False}
+    started_at = time.monotonic()
     telemetry_at = 0
-    attributes_sent = False
+    attributes_sent = profile is not None
     print(f'Simulator started: {host}', flush=True)
 
     def request(path, payload=None, timeout=35):
@@ -62,16 +97,25 @@ def main():
                                         'rpc_contract': RPC_CONTRACT})
                 attributes_sent = True
             if time.monotonic() >= telemetry_at:
-                telemetry = {'test_temperature_c': 24.5, 'test_humidity_percent': 56,
-                             'test_co2_ppm': 650, 'test_data': True, 'test_power': state['power']}
+                if profile:
+                    update_room_sample(profile, state, time.monotonic() - started_at)
+                    telemetry = state
+                else:
+                    telemetry = {'test_temperature_c': 24.5, 'test_humidity_percent': 56,
+                                 'test_co2_ppm': 650, 'test_data': True, 'test_power': state['power']}
                 request('/telemetry', telemetry)
                 print(f'Telemetry sent: {json.dumps(telemetry)}', flush=True)
                 telemetry_at = time.monotonic() + 30
-            body = request('/rpc?timeout=25000')
+            poll_ms = 10000 if profile else 25000
+            body = request(f'/rpc?timeout={poll_ms}')
             if body:
                 command = json.loads(body)
                 print(f"RPC received: {command.get('method')} {json.dumps(command.get('params'))}", flush=True)
-                result = reply(command.get('method'), command.get('params'), state)
+                if profile:
+                    update_room_sample(profile, state, time.monotonic() - started_at)
+                    result = room_reply(profile, command.get('method'), command.get('params'), state)
+                else:
+                    result = reply(command.get('method'), command.get('params'), state)
                 request('/rpc/' + str(command['id']), result)
                 print(f'RPC response sent: {json.dumps(result)}', flush=True)
                 telemetry_at = 0

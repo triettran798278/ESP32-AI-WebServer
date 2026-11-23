@@ -13,14 +13,14 @@ from plugins_func.register import Action
 
 TAG = __name__
 
-# 设置最大文件大小为5MB
+# Set max file size to 5MB
 MAX_FILE_SIZE = 5 * 1024 * 1024
 
 
 class VisionHandler(BaseHandler):
     def __init__(self, config: dict):
         super().__init__(config)
-        # 初始化认证工具
+        # Initialize auth helper
         self.auth = AuthToken(config["server"]["auth_key"])
 
     def _create_error_response(self, message: str) -> dict:
@@ -33,14 +33,14 @@ class VisionHandler(BaseHandler):
         if not auth_header.startswith("Bearer "):
             return False, None
 
-        token = auth_header[7:]  # 移除"Bearer "前缀
+        token = auth_header[7:]  # Strip "Bearer " prefix
         return self.auth.verify_token(token)
 
     async def handle_post(self, request):
         """处理 MCP Vision POST 请求"""
-        response = None  # 初始化response变量
+        response = None  # Initialize response variable
         try:
-            # 验证token
+            # Verify token
             is_valid, token_device_id = self._verify_auth_token(request)
             if not is_valid:
                 response = web.Response(
@@ -52,47 +52,47 @@ class VisionHandler(BaseHandler):
                 )
                 return response
 
-            # 获取请求头信息
+            # Get request headers
             device_id = request.headers.get("Device-Id", "")
             client_id = request.headers.get("Client-Id", "")
             if device_id != token_device_id:
                 raise ValueError("设备ID与token不匹配")
-            # 解析multipart/form-data请求
+            # Parse multipart/form-data request
             reader = await request.multipart()
 
-            # 读取question字段
+            # Read question field
             question_field = await reader.next()
             if question_field is None:
                 raise ValueError("缺少问题字段")
             question = await question_field.text()
             self.logger.bind(tag=TAG).debug(f"Question: {question}")
 
-            # 读取图片文件
+            # Read image file
             image_field = await reader.next()
             if image_field is None:
                 raise ValueError("缺少图片文件")
 
-            # 读取图片数据
+            # Read image data
             image_data = await image_field.read()
             if not image_data:
                 raise ValueError("图片数据为空")
 
-            # 检查文件大小
+            # Check file size
             if len(image_data) > MAX_FILE_SIZE:
                 raise ValueError(
                     f"图片大小超过限制，最大允许{MAX_FILE_SIZE/1024/1024}MB"
                 )
 
-            # 检查文件格式
+            # Check file format
             if not is_valid_image_file(image_data):
                 raise ValueError(
                     "不支持的文件格式，请上传有效的图片文件（支持JPEG、PNG、GIF、BMP、TIFF、WEBP格式）"
                 )
 
-            # 将图片转换为base64编码
+            # Encode image as base64
             image_base64 = base64.b64encode(image_data).decode("utf-8")
 
-            # 如果开启了智控台，则从智控台获取模型配置
+            # Fetch model config from manager console if enabled
             current_config = copy.deepcopy(self.config)
             read_config_from_api = current_config.get("read_config_from_api", False)
             if read_config_from_api:

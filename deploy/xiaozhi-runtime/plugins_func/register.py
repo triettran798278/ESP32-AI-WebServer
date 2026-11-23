@@ -36,9 +36,9 @@ class Action(Enum):
 
 class ActionResponse:
     def __init__(self, action: Action, result=None, response=None):
-        self.action = action  # 动作类型
-        self.result = result  # 动作产生的结果
-        self.response = response  # 直接回复的内容
+        self.action = action  # Action type
+        self.result = result  # Action result
+        self.response = response  # Direct response content
 
 
 class FunctionItem:
@@ -59,7 +59,7 @@ class DeviceTypeRegistry:
         """通过设备能力描述生成类型ID"""
         properties = sorted(descriptor["properties"].keys())
         methods = sorted(descriptor["methods"].keys())
-        # 使用属性和方法的组合作为设备类型的唯一标识
+        # Use combination of properties and methods as unique device type ID
         type_signature = (
             f"{descriptor['name']}:{','.join(properties)}:{','.join(methods)}"
         )
@@ -75,7 +75,7 @@ class DeviceTypeRegistry:
             self.type_functions[type_id] = functions
 
 
-# 初始化函数注册字典
+# Initialize function registry dictionary
 all_function_registry = {}
 
 
@@ -106,13 +106,13 @@ class FunctionRegistry:
         self.logger = setup_logging()
 
     def register_function(self, name, func_item=None):
-        # 如果提供了func_item，直接注册
+        # Register directly if func_item is provided
         if func_item:
             self.function_registry[name] = func_item
             self.logger.bind(tag=TAG).debug(f"函数 '{name}' 直接注册成功")
             return func_item
 
-        # 否则从all_function_registry中查找
+        # Otherwise look up from all_function_registry
         func = all_function_registry.get(name)
         if not func:
             self.logger.bind(tag=TAG).error(f"函数 '{name}' 未找到")
@@ -122,7 +122,7 @@ class FunctionRegistry:
         return func
 
     def unregister_function(self, name):
-        # 注销函数，检测是否存在
+        # Unregister function after checking existence
         if name not in self.function_registry:
             self.logger.bind(tag=TAG).error(f"函数 '{name}' 未找到")
             return False

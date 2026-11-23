@@ -12,9 +12,9 @@ class IntentProviderBase(ABC):
 
     def set_llm(self, llm):
         self.llm = llm
-        # 获取模型名称和类型信息
+        # Get model name and type info
         model_name = getattr(llm, "model_name", str(llm.__class__.__name__))
-        # 记录更详细的日志
+        # Log more details
         logger.bind(tag=TAG).info(f"意图识别设置LLM: {model_name}")
 
     @abstractmethod

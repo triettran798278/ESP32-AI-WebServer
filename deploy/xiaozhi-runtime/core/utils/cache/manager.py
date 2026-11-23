@@ -65,23 +65,23 @@ class GlobalCacheManager:
         config = self._configs.get(cache_name) or CacheConfig.for_type(cache_type)
         cache = self._get_or_create_cache(cache_name, config)
 
-        # 使用配置的TTL或传入的TTL
+        # Use configured TTL or provided TTL
         effective_ttl = ttl if ttl is not None else config.ttl
 
         with self._locks[cache_name]:
-            # 创建缓存条目
+            # Create cache entry
             entry = CacheEntry(value=value, timestamp=time.time(), ttl=effective_ttl)
 
-            # 处理不同策略
+            # Handle strategy-specific eviction
             if config.strategy in [CacheStrategy.LRU, CacheStrategy.TTL_LRU]:
-                # LRU策略：如果已存在则移动到末尾
+                # LRU strategy: move existing key to the end
                 if key in cache:
                     del cache[key]
                 cache[key] = entry
 
-                # 检查大小限制
+                # Check size limit
                 if config.max_size and len(cache) > config.max_size:
-                    # 移除最旧的条目
+                    # Remove oldest entry
                     oldest_key = next(iter(cache))
                     del cache[oldest_key]
                     self._stats["evictions"] += 1
@@ -89,14 +89,14 @@ class GlobalCacheManager:
             else:
                 cache[key] = entry
 
-                # 检查大小限制
+                # Check size limit
                 if config.max_size and len(cache) > config.max_size:
-                    # 简单策略：随机移除一个条目
+                    # Simple strategy: remove an entry
                     victim_key = next(iter(cache))
                     del cache[victim_key]
                     self._stats["evictions"] += 1
 
-        # 定期清理过期条目
+        # Periodically clean up expired entries
         self._maybe_cleanup(cache_name)
 
     def get(
@@ -119,16 +119,16 @@ class GlobalCacheManager:
 
             entry = cache[key]
 
-            # 检查过期
+            # Check expiration
             if entry.is_expired():
                 del cache[key]
                 self._stats["misses"] += 1
                 return None
 
-            # 更新访问信息
+            # Update access metadata
             entry.touch()
 
-            # LRU策略：移动到末尾
+            # LRU strategy: move to the end
             if config.strategy in [CacheStrategy.LRU, CacheStrategy.TTL_LRU]:
                 del cache[key]
                 cache[key] = entry
@@ -212,5 +212,5 @@ class GlobalCacheManager:
                 self.logger.debug(f"清理缓存 {cache_name}: 删除 {deleted} 个过期条目")
 
 
-# 创建全局缓存管理器实例
+# Create global cache manager instance
 cache_manager = GlobalCacheManager()

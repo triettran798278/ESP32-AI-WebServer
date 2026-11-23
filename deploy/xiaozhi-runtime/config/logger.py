@@ -38,9 +38,9 @@ def build_module_string(selected_module):
 def formatter(record):
     """为没有 tag 的日志添加默认值，并处理动态模块字符串"""
     record["extra"].setdefault("tag", record["name"])
-    # 如果没有设置 selected_module，使用默认值
+    # Use default if selected_module is not set
     record["extra"].setdefault("selected_module", "00000000000000")
-    # 将 selected_module 从 extra 提取到顶级，以支持 {selected_module} 格式
+    # Promote selected_module from extra to top-level to support {selected_module} format
     record["selected_module"] = record["extra"]["selected_module"]
     return record["message"]
 
@@ -52,9 +52,9 @@ def setup_logging():
     log_config = config["log"]
     global _logger_initialized
 
-    # 第一次初始化时配置日志
+    # Configure logging on first initialization
     if not _logger_initialized:
-        # 使用默认的模块字符串进行初始化
+        # Initialize with default module string
         logger.configure(
             extra={
                 "selected_module": log_config.get("selected_module", "00000000000000"),
@@ -80,31 +80,31 @@ def setup_logging():
         os.makedirs(log_dir, exist_ok=True)
         os.makedirs(data_dir, exist_ok=True)
 
-        # 配置日志输出
+        # Configure log output
         logger.remove()
 
-        # 输出到控制台
+        # Log to console
         logger.add(sys.stdout, format=log_format, level=log_level, filter=formatter)
 
-        # 输出到文件 - 统一目录，按大小轮转
-        # 日志文件完整路径
+        # Log to file in unified directory with size-based rotation
+        # Full log file path
         log_file_path = os.path.join(log_dir, log_file)
 
-        # 添加日志处理器
+        # Add file log handler
         logger.add(
             log_file_path,
             format=log_format_file,
             level=log_level,
             filter=formatter,
-            rotation="10 MB",  # 每个文件最大10MB
-            retention="30 days",  # 保留30天
+            rotation="10 MB",  # Max 10MB per file
+            retention="30 days",  # Keep for 30 days
             compression=None,
             encoding="utf-8",
-            enqueue=True,  # 异步安全
+            enqueue=True,  # Async-safe
             backtrace=True,
             diagnose=True,
         )
-        _logger_initialized = True  # 标记为已初始化
+        _logger_initialized = True  # Mark as initialized
 
     return logger
 
